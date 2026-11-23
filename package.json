@@ -1,0 +1,51 @@
+{
+  "name": "quality-analysis-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Quality analysis MCP server",
+  "homepage": "https://github.com/chenmijiang/quality-analysis-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/chenmijiang/quality-analysis-mcp/issues"
+  },
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chenmijiang/quality-analysis-mcp.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --target=node --format=esm --outdir=dist --minify",
+    "start": "bun dist/index.js",
+    "oxlint": "oxlint",
+    "oxfmt": "oxfmt .",
+    "oxfmt:check": "oxfmt --check .",
+    "test": "vitest run",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@types/node": "^22.20.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.2",
+    "oxfmt": "^0.79.0",
+    "oxlint": "^1.94.0",
+    "tsrs": "^7.1.0-beta.tsrs4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  },
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts,cts,mts}": [
+      "oxfmt",
+      "oxlint --deny-warnings"
+    ],
+    "*.{json,jsonc,md,mdx,yaml,yml}": "oxfmt"
+  },
+  "engines": {
+    "bun": ">=1.4.5",
+    "node": "^22.22.1 || ^24.0.0 || >=26.0.0"
+  }
+}
