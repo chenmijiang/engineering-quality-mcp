@@ -5,7 +5,7 @@ import { InMemorySessionBroker } from "@/core/session-broker";
 import type { ToolModule } from "@/core/tool-module";
 import { builtinChecks, type Check } from "@/features/checks";
 import { CheckTool } from "@/features/checks/check-tool";
-import { SessionTools } from "@/features/session/session-tools";
+import { SessionTools } from "@/features/session-tools";
 import { PiRuntime } from "@/runtimes/pi/pi-runtime";
 
 import type { Config } from "./config";

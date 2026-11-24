@@ -14,8 +14,7 @@ import { Type } from "typebox";
 
 import type { AgentRuntime, AgentSession, HostChannel, OpenSessionOptions } from "@/core/contracts";
 
-import askHostPrompt from "./prompts/ask-host.md" with { type: "text" };
-import systemPrompt from "./prompts/system.md" with { type: "text" };
+import systemPrompt from "./system.md" with { type: "text" };
 
 export interface PiRuntimeOptions {
   /** Directory whose Pi settings seed every session. */
@@ -46,7 +45,8 @@ function askHostTool(host: HostChannel): ToolDefinition<typeof questionSchema> {
     name: "ask_host",
     label: "Ask host",
     parameters: questionSchema,
-    description: askHostPrompt.trim(),
+    description:
+      "Ask the calling host agent for missing information or a user decision. Waits for the host's answer, then resumes your current run. Ask one concrete question; never request nested delegation.",
     promptSnippet: "Ask the host a necessary clarification and wait for its answer.",
     executionMode: "sequential",
     async execute(_id, { question }, signal) {
