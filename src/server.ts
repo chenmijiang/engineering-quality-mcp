@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import type { PiBridge, Result } from "./bridge";
+import { checkTestPrompt, resolveTestFiles } from "./check-test";
 import { prompts } from "./prompts";
 
 const resultSchema = z.object({
@@ -39,7 +40,45 @@ export function createServer(bridge: PiBridge) {
       outputSchema: resultSchema,
     },
     async ({ prompt, session_id }, ctx) =>
-      toolResult(await bridge.ask(prompt, session_id, ctx.mcpReq.signal)),
+      toolResult(await bridge.ask({ prompt, sessionId: session_id }, ctx.mcpReq.signal)),
+  );
+
+  server.registerTool(
+    "check_test",
+    {
+      description: prompts.checkTestTool,
+      inputSchema: z.object({
+        project_dir: z.string().min(1).describe("Absolute path of the project root"),
+        scope: z
+          .array(z.string().min(1))
+          .min(1)
+          .max(100)
+          .default(["."])
+          .describe(
+            "Paths or globs relative to project_dir; directories and globs keep only test files",
+          ),
+        instructions: z
+          .string()
+          .max(10_000)
+          .optional()
+          .describe("Extra reviewer guidance, such as focus areas or report language"),
+      }),
+      outputSchema: resultSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async ({ project_dir, scope, instructions }, ctx) => {
+      let files: string[];
+      try {
+        files = await resolveTestFiles(project_dir, scope);
+      } catch (error) {
+        return toolResult({
+          status: "error",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      const prompt = checkTestPrompt(files, instructions);
+      return toolResult(await bridge.ask({ prompt, cwd: project_dir }, ctx.mcpReq.signal));
+    },
   );
 
   server.registerTool(

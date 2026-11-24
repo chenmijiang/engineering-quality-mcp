@@ -29,6 +29,7 @@ type Question = PromiseWithResolvers<string> & { id: string };
 type Turn = { result: PromiseWithResolvers<Result>; timer: NodeJS.Timeout; error?: string };
 type Conversation = {
   id: string;
+  cwd: string;
   session?: AgentSession;
   turn?: Turn;
   pending?: Question;
@@ -53,9 +54,17 @@ const resourceLoader: ResourceLoader = {
 
 const questionSchema = Type.Object({ question: Type.String({ minLength: 1, maxLength: 16_000 }) });
 
+export interface AskRequest {
+  prompt: string;
+  /** Continues this completed session; omit to start a new one. */
+  sessionId?: string;
+  /** Workspace for a new session; defaults to the configured cwd. Ignored when continuing. */
+  cwd?: string;
+}
+
 export interface PiBridge {
   /** Starts a session, or continues a completed one, and waits for its next result. */
-  ask(prompt: string, sessionId: string | undefined, signal: AbortSignal): Promise<Result>;
+  ask(request: AskRequest, signal: AbortSignal): Promise<Result>;
   /** Resolves the pending ask_host call and waits for the session's next result. */
   reply(
     sessionId: string,
@@ -158,14 +167,14 @@ export function createPiBridge(config: Config): PiBridge {
       throw new Error(`Unknown Pi model: ${config.model.provider}/${config.model.id}`);
     }
     const { session } = await createAgentSession({
-      cwd: config.cwd,
+      cwd: record.cwd,
       agentDir: config.agentDir,
       modelRuntime,
       model,
       resourceLoader,
       tools: ["ask_host", "read", "grep", "find", "ls"],
       customTools: [askHostTool(record)],
-      sessionManager: SessionManager.inMemory(config.cwd),
+      sessionManager: SessionManager.inMemory(record.cwd),
       settingsManager: SettingsManager.inMemory({
         ...baseSettings,
         compaction: { ...baseSettings.compaction, enabled: false },
@@ -236,7 +245,7 @@ export function createPiBridge(config: Config): PiBridge {
   sweeper.unref();
 
   return {
-    async ask(prompt, sessionId, signal) {
+    async ask({ prompt, sessionId, cwd }, signal) {
       if (shuttingDown) return fail("Server is shutting down");
       let record: Conversation;
       if (sessionId) {
@@ -255,7 +264,12 @@ export function createPiBridge(config: Config): PiBridge {
         if (sessions.size >= config.maxSessions) {
           return fail("Session limit reached; cancel_pi an existing session first");
         }
-        record = { id: crypto.randomUUID(), closed: false, touched: Date.now() };
+        record = {
+          id: crypto.randomUUID(),
+          cwd: cwd ?? config.cwd,
+          closed: false,
+          touched: Date.now(),
+        };
         sessions.set(record.id, record);
       }
       const turn = startTurn(record);
