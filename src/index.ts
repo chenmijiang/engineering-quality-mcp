@@ -1,14 +1,13 @@
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
-import { createPiBridge } from "./bridge";
+import { App } from "./app";
 import { loadConfig } from "./config";
-import { createServer } from "./server";
 
 // stdout belongs exclusively to the MCP transport; route SDK console output to stderr.
 console.log = console.info = console.debug = console.error;
 
-const bridge = createPiBridge(loadConfig());
-const handle = serveStdio(() => createServer(bridge), {
+const app = new App(loadConfig());
+const handle = serveStdio(() => app.createServer(), {
   onerror: (error) => console.error("MCP:", error.message),
 });
 
@@ -18,7 +17,7 @@ async function shutdown() {
   stopping = true;
   setTimeout(() => process.exit(0), 2_000).unref();
   try {
-    await bridge.shutdown();
+    await app.shutdown();
     await handle.close();
   } catch (error) {
     console.error("Shutdown:", error instanceof Error ? error.message : String(error));

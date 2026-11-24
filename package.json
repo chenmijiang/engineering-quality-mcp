@@ -20,7 +20,7 @@
     "oxlint": "oxlint",
     "oxfmt": "oxfmt .",
     "oxfmt:check": "oxfmt --check .",
-    "test": "bun --bun vitest run --pool=threads",
+    "test": "bun --bun vitest run",
     "prepare": "husky"
   },
   "dependencies": {

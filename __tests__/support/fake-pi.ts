@@ -57,7 +57,7 @@ function reply(messages: WireMessage[]) {
   if (last?.role === "user" && messageText(last) === "ASK") {
     return toolCall("call-1", "ask_host", { question: "What is the code?" });
   }
-  if (last?.role === "user" && messageText(last).includes("<test-files>")) {
+  if (last?.role === "user" && messageText(last).includes("<files>")) {
     return toolCall("call-read", "read", { path: "src/sum.test.ts" });
   }
   if (last?.role === "tool" && messageText(last) === "NEXT") {

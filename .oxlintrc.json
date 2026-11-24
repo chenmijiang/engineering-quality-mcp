@@ -4,5 +4,71 @@
   "options": {
     "typeAware": true,
     "typeCheck": true
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../**"], "message": "Import across directories through `@/`." }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/core/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../**"], "message": "Import across directories through `@/`." },
+              {
+                "group": ["@/**", "!@/core/**", "@earendil-works/*"],
+                "message": "core depends only on itself: no features, runtimes, app, or agent SDK."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/features/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../**"], "message": "Import across directories through `@/`." },
+              {
+                "group": ["@/runtimes/**", "@/app", "@/config", "@earendil-works/*"],
+                "message": "Features use agents through core contracts, not a concrete runtime."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/runtimes/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              { "group": ["../**"], "message": "Import across directories through `@/`." },
+              {
+                "group": ["@/features/**", "@/app", "@/config"],
+                "message": "Runtimes implement core contracts and know no features."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

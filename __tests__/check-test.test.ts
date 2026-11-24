@@ -32,14 +32,17 @@ const batch = (count: number) =>
 async function checkTest(args: Record<string, unknown>) {
   const before = fake.requests.length;
   const result = await callTool(client, "check_test", args);
+  if (result.value.session_id) {
+    await callTool(client, "cancel_pi", { session_id: result.value.session_id });
+  }
   const prompts = fake.requests
     .slice(before)
     .map((messages) => messageText(messages.findLast((message) => message.role === "user")));
-  return { ...result, prompt: prompts.find((prompt) => prompt.includes("<test-files>")) };
+  return { ...result, prompt: prompts.find((prompt) => prompt.includes("<files>")) };
 }
 
 const listedFiles = (prompt = "") =>
-  /<test-files>\n([\s\S]*?)\n<\/test-files>/.exec(prompt)?.[1]?.split("\n");
+  /<files>\n([\s\S]*?)\n<\/files>/.exec(prompt)?.[1]?.split("\n");
 
 beforeAll(async () => {
   fake = await startFakeProvider();
@@ -54,6 +57,8 @@ beforeAll(async () => {
     "node_modules/pkg/index.test.js": "",
     "dist/index.test.js": "",
     ".cache/stale.test.ts": "",
+    "lib/constructor/helper.test.ts": "",
+    "lib/toString/util.ts": "",
   });
   client = await fake.connect([resolve("src/index.ts")]);
 }, 30_000);
@@ -68,8 +73,18 @@ describe("check_test scope resolution", () => {
   test.each([
     {
       scope: ["."],
-      files: ["__tests__/api.ts", "src/sum.test.ts", "src/view.spec.tsx"],
+      files: [
+        "__tests__/api.ts",
+        "lib/constructor/helper.test.ts",
+        "src/sum.test.ts",
+        "src/view.spec.tsx",
+      ],
       case: "project root skips ignored, hidden, declaration, and non-test files",
+    },
+    {
+      scope: ["lib"],
+      files: ["lib/constructor/helper.test.ts"],
+      case: "directory names matching Object.prototype keys are not special",
     },
     { scope: ["src"], files: ["src/sum.test.ts", "src/view.spec.tsx"], case: "directory" },
     { scope: ["src/*.tsx"], files: ["src/view.spec.tsx"], case: "glob" },
@@ -93,6 +108,7 @@ describe("check_test scope resolution", () => {
     const { prompt } = await checkTest({ project_dir: project });
     expect(listedFiles(prompt)).toEqual([
       "__tests__/api.ts",
+      "lib/constructor/helper.test.ts",
       "src/sum.test.ts",
       "src/view.spec.tsx",
     ]);
@@ -138,11 +154,13 @@ describe("check_test review", () => {
       scope: ["src/sum.test.ts"],
       instructions: "Write the report in Chinese.",
     });
+    expect(value).toMatchObject({
+      status: "completed",
+      text: expect.stringContaining("SUM-TEST-MARKER"),
+    });
     expect(prompt).toContain("<rubric>\nWrite every test as a specification of behavior");
     expect(prompt).toContain(
       "<host-instructions>\nWrite the report in Chinese.\n</host-instructions>",
     );
-    expect(value.status).toBe("completed");
-    expect(value.text).toContain("SUM-TEST-MARKER");
   }, 30_000);
 });

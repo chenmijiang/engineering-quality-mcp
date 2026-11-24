@@ -1,4 +1,4 @@
-Review the quality of the test files listed in <test-files>, using <rubric> as the only standard.
+Review the quality of the test files listed in <files>, using <rubric> as the only standard.
 
 How to review:
 
