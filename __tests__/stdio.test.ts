@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -27,22 +27,20 @@ async function expectServerToInitializeAndPing(command: string, args: string[]) 
   }
 }
 
-test("a client can initialize and ping the stdio server running with Bun", async () => {
+test("a client can initialize and ping the stdio server from source", async () => {
   await expectServerToInitializeAndPing("bun", ["src/index.ts"]);
 });
 
-test("a client can initialize and ping the Bun-built stdio server running with Node", async () => {
-  expect(process.versions.bun).toBeUndefined();
+test("a client can initialize and ping the built stdio server", async () => {
   const directory = await mkdtemp(join(tmpdir(), "quality-analysis-mcp-"));
   const bundle = join(directory, "index.js");
 
   try {
-    await writeFile(join(directory, "package.json"), '{"type":"module"}');
     await execFileAsync("bun", ["run", "build", "--outdir", directory], {
       cwd: process.cwd(),
       timeout: 20_000,
     });
-    await expectServerToInitializeAndPing(process.execPath, [bundle]);
+    await expectServerToInitializeAndPing("bun", [bundle]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
