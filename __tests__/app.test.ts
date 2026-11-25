@@ -71,7 +71,7 @@ async function call(name: string, args: Record<string, unknown>) {
 }
 
 beforeAll(async () => {
-  project = await mkdtemp(join(tmpdir(), "quality-analysis-mcp-app-"));
+  project = await mkdtemp(join(tmpdir(), "engineering-quality-mcp-app-"));
   await mkdir(join(project, "docs"));
   await writeFile(join(project, "docs/guide.md"), "");
   await writeFile(join(project, "docs/build.ts"), "");

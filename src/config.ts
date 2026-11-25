@@ -23,18 +23,18 @@ function positiveInteger(env: NodeJS.ProcessEnv, name: string, fallback: number)
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const { QA_PROVIDER: provider, QA_MODEL: id } = env;
-  if (!provider !== !id) throw new Error("Set QA_PROVIDER and QA_MODEL together, or omit both");
+  const { EQ_PROVIDER: provider, EQ_MODEL: id } = env;
+  if (!provider !== !id) throw new Error("Set EQ_PROVIDER and EQ_MODEL together, or omit both");
   const projectCwd = process.cwd();
-  const agentDir = resolve(env.QA_AGENT_DIR ?? join(env.HOME ?? homedir(), ".qa", "agent"));
+  const agentDir = resolve(env.EQ_AGENT_DIR ?? join(env.HOME ?? homedir(), ".eq", "agent"));
   return {
-    cwd: resolve(env.QA_CWD ?? projectCwd),
+    cwd: resolve(env.EQ_CWD ?? projectCwd),
     projectCwd,
     agentDir,
-    sessionDir: resolve(env.QA_SESSION_DIR ?? join(agentDir, "sessions")),
+    sessionDir: resolve(env.EQ_SESSION_DIR ?? join(agentDir, "sessions")),
     model: provider && id ? { provider, id } : undefined,
-    runTimeoutMs: positiveInteger(env, "QA_RUN_TIMEOUT_MS", 300_000),
-    idleTimeoutMs: positiveInteger(env, "QA_IDLE_TIMEOUT_MS", 1_800_000),
-    maxSessions: positiveInteger(env, "QA_MAX_SESSIONS", 8),
+    runTimeoutMs: positiveInteger(env, "EQ_RUN_TIMEOUT_MS", 300_000),
+    idleTimeoutMs: positiveInteger(env, "EQ_IDLE_TIMEOUT_MS", 1_800_000),
+    maxSessions: positiveInteger(env, "EQ_MAX_SESSIONS", 8),
   };
 }

@@ -12,10 +12,10 @@ let project: string;
 let agentDir: string;
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "qa-settings-"));
+  root = await mkdtemp(join(tmpdir(), "eq-settings-"));
   project = join(root, "project");
-  agentDir = join(root, "home", ".qa", "agent");
-  await mkdir(join(project, ".qa"), { recursive: true });
+  agentDir = join(root, "home", ".eq", "agent");
+  await mkdir(join(project, ".eq"), { recursive: true });
   await mkdir(agentDir, { recursive: true });
 });
 
@@ -26,31 +26,31 @@ afterEach(async () => {
 test("configuration separates startup project, session cwd and application agent directory", () => {
   const before = { ...process.env };
   const home = join(root, "home");
-  const env = { HOME: home, QA_CWD: project, PI_CODING_AGENT_DIR: join(root, "decoy") };
+  const env = { HOME: home, EQ_CWD: project, PI_CODING_AGENT_DIR: join(root, "decoy") };
   expect(loadConfig(env)).toMatchObject({
     cwd: project,
     projectCwd: process.cwd(),
-    agentDir: join(home, ".qa", "agent"),
-    sessionDir: join(home, ".qa", "agent", "sessions"),
+    agentDir: join(home, ".eq", "agent"),
+    sessionDir: join(home, ".eq", "agent", "sessions"),
   });
-  expect(loadConfig({ ...env, QA_AGENT_DIR: agentDir })).toMatchObject({
+  expect(loadConfig({ ...env, EQ_AGENT_DIR: agentDir })).toMatchObject({
     agentDir,
     sessionDir: join(agentDir, "sessions"),
   });
-  expect(loadConfig({ ...env, QA_SESSION_DIR: join(root, "transcripts") })).toMatchObject({
+  expect(loadConfig({ ...env, EQ_SESSION_DIR: join(root, "transcripts") })).toMatchObject({
     sessionDir: join(root, "transcripts"),
   });
   expect(process.env).toEqual(before);
 });
 
-test("QA environment variables configure the model and session limits", () => {
+test("EQ environment variables configure the model and session limits", () => {
   expect(
     loadConfig({
-      QA_PROVIDER: "fake",
-      QA_MODEL: "test-model",
-      QA_RUN_TIMEOUT_MS: "1234",
-      QA_IDLE_TIMEOUT_MS: "5678",
-      QA_MAX_SESSIONS: "3",
+      EQ_PROVIDER: "fake",
+      EQ_MODEL: "test-model",
+      EQ_RUN_TIMEOUT_MS: "1234",
+      EQ_IDLE_TIMEOUT_MS: "5678",
+      EQ_MAX_SESSIONS: "3",
     }),
   ).toMatchObject({
     model: { provider: "fake", id: "test-model" },
@@ -75,7 +75,7 @@ test("legacy PI application variables do not configure the server", () => {
     }),
   ).toMatchObject({
     cwd: process.cwd(),
-    agentDir: join(home, ".qa", "agent"),
+    agentDir: join(home, ".eq", "agent"),
     model: undefined,
     runTimeoutMs: 300_000,
     idleTimeoutMs: 1_800_000,
@@ -83,17 +83,17 @@ test("legacy PI application variables do not configure the server", () => {
   });
 });
 
-test.each([{ QA_PROVIDER: "fake" }, { QA_MODEL: "test-model" }])(
-  "QA provider and model must be configured together",
+test.each([{ EQ_PROVIDER: "fake" }, { EQ_MODEL: "test-model" }])(
+  "EQ provider and model must be configured together",
   (env) => {
-    expect(() => loadConfig(env)).toThrow("Set QA_PROVIDER and QA_MODEL together, or omit both");
+    expect(() => loadConfig(env)).toThrow("Set EQ_PROVIDER and EQ_MODEL together, or omit both");
   },
 );
 
 describe.each([
-  ["QA_RUN_TIMEOUT_MS", "runTimeoutMs"],
-  ["QA_IDLE_TIMEOUT_MS", "idleTimeoutMs"],
-  ["QA_MAX_SESSIONS", "maxSessions"],
+  ["EQ_RUN_TIMEOUT_MS", "runTimeoutMs"],
+  ["EQ_IDLE_TIMEOUT_MS", "idleTimeoutMs"],
+  ["EQ_MAX_SESSIONS", "maxSessions"],
 ] as const)("%s", (name, field) => {
   test.each(["", "0", "-1", "1.5", "not-a-number", "Infinity", "2147483648"])(
     "rejects invalid positive integer %j",
@@ -125,7 +125,7 @@ test("missing settings use SDK defaults without creating directories or lock fil
 
 test("SDK migration and nested project-over-global merging work without rewriting files", async () => {
   const globalPath = join(agentDir, "settings.json");
-  const projectPath = join(project, ".qa", "settings.json");
+  const projectPath = join(project, ".eq", "settings.json");
   const global =
     '\uFEFF{"defaultProvider":"fake","defaultModel":"global-model","queueMode":"all","websockets":true,"compaction":{"enabled":true,"reserveTokens":1234}}';
   const local = '{"defaultModel":"project-model","compaction":{"enabled":false}}';
@@ -143,14 +143,14 @@ test("SDK migration and nested project-over-global merging work without rewritin
   expect(await readFile(globalPath, "utf8")).toBe(global);
   expect(await readFile(projectPath, "utf8")).toBe(local);
   expect(await readdir(agentDir)).toEqual(["settings.json"]);
-  expect(await readdir(join(project, ".qa"))).toEqual(["settings.json"]);
+  expect(await readdir(join(project, ".eq"))).toEqual(["settings.json"]);
 });
 
 test("settings are startup snapshots, including files absent at startup", async () => {
   await writeFile(join(agentDir, "settings.json"), '{"defaultModel":"global-model"}');
   const manager = createReadOnlySettings(project, agentDir);
   await writeFile(join(agentDir, "settings.json"), '{"defaultModel":"changed"}');
-  await writeFile(join(project, ".qa", "settings.json"), '{"defaultModel":"new-project"}');
+  await writeFile(join(project, ".eq", "settings.json"), '{"defaultModel":"new-project"}');
   await manager.reload();
   expect(manager.getDefaultModel()).toBe("global-model");
   expect(manager.getProjectSettings()).toEqual({});
@@ -178,7 +178,7 @@ test.each(["global", "project"] as const)(
   "invalid %s JSON reports scope, path and SDK cause",
   async (scope) => {
     const path =
-      scope === "global" ? join(agentDir, "settings.json") : join(project, ".qa", "settings.json");
+      scope === "global" ? join(agentDir, "settings.json") : join(project, ".eq", "settings.json");
     await writeFile(path, "{invalid");
     let failure: unknown;
     try {
@@ -198,7 +198,7 @@ test.each(["global", "project"] as const)(
 );
 
 test("non-ENOENT read failures in both scopes are reported rather than defaulted", async () => {
-  const paths = [join(agentDir, "settings.json"), join(project, ".qa", "settings.json")];
+  const paths = [join(agentDir, "settings.json"), join(project, ".eq", "settings.json")];
   await Promise.all(paths.map((path) => mkdir(path)));
   let failure: unknown;
   try {

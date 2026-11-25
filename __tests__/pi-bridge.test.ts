@@ -42,19 +42,19 @@ async function withSettingsFixture(
   args: string[],
   action: (fixture: SettingsFixture) => Promise<void>,
 ) {
-  const root = await mkdtemp(join(tmpdir(), "qa-stdio-settings-"));
+  const root = await mkdtemp(join(tmpdir(), "eq-stdio-settings-"));
   const home = join(root, "home");
   const project = join(root, "project");
   const session = join(root, "session");
-  const agentDir = join(home, ".qa", "agent");
+  const agentDir = join(home, ".eq", "agent");
   const legacyAgentDir = join(root, "legacy-agent-decoy");
   const clients: Client[] = [];
   try {
     await Promise.all([
       mkdir(agentDir, { recursive: true }),
-      mkdir(join(project, ".qa"), { recursive: true }),
+      mkdir(join(project, ".eq"), { recursive: true }),
       mkdir(join(project, ".pi"), { recursive: true }),
-      mkdir(join(session, ".qa"), { recursive: true }),
+      mkdir(join(session, ".eq"), { recursive: true }),
       mkdir(join(home, ".pi", "agent"), { recursive: true }),
       mkdir(legacyAgentDir, { recursive: true }),
     ]);
@@ -76,7 +76,7 @@ async function withSettingsFixture(
         '{"defaultProvider":"fake","defaultModel":"test-model"}',
       ),
       copyFile(join(fake.agentDir, "models.json"), join(legacyAgentDir, "models.json")),
-      writeFile(join(session, ".qa", "settings.json"), '{"defaultModel":"test-model"}'),
+      writeFile(join(session, ".eq", "settings.json"), '{"defaultModel":"test-model"}'),
     ]);
     await action({
       project,
@@ -87,11 +87,11 @@ async function withSettingsFixture(
           cwd: project,
           env: {
             HOME: home,
-            QA_AGENT_DIR: undefined,
-            QA_PROVIDER: undefined,
-            QA_MODEL: undefined,
+            EQ_AGENT_DIR: undefined,
+            EQ_PROVIDER: undefined,
+            EQ_MODEL: undefined,
             PI_CODING_AGENT_DIR: legacyAgentDir,
-            QA_CWD: session,
+            EQ_CWD: session,
             ...env,
           },
         });
@@ -175,10 +175,10 @@ describe.each([
         content: expect.arrayContaining([{ type: "text", text: "CODE:CODE-7" }]),
       }),
     );
-    // qa_close is our documented diagnostic contract, not an SDK-owned event layout.
+    // The close entry is our diagnostic contract, not an SDK-owned event layout.
     expect(transcript.getEntries().at(-1)).toMatchObject({
       type: "custom",
-      customType: "qa_close",
+      customType: "eq_close",
       data: { reason: "Session closed by host" },
     });
   }, 30_000);
@@ -213,7 +213,7 @@ describe.each([
     await call("cancel_pi", { session_id });
   }, 30_000);
 
-  test("global .qa settings select the wire model while .pi and legacy agent directories are ignored", async () => {
+  test("global .eq settings select the wire model while .pi and legacy agent directories are ignored", async () => {
     await withSettingsFixture(args(), async ({ connect }) => {
       const configuredClient = await connect();
       const result = await callTool(configuredClient, "ask_pi", { prompt: "MODEL" });
@@ -222,9 +222,9 @@ describe.each([
     });
   }, 30_000);
 
-  test("startup project .qa overrides global settings despite QA_CWD and stays a snapshot", async () => {
+  test("startup project .eq overrides global settings despite EQ_CWD and stays a snapshot", async () => {
     await withSettingsFixture(args(), async ({ project, agentDir, connect }) => {
-      const path = join(project, ".qa", "settings.json");
+      const path = join(project, ".eq", "settings.json");
       const projectSettings = '{"defaultModel":"project-model"}';
       await writeFile(path, projectSettings);
       const globalBefore = await readFile(join(agentDir, "settings.json"), "utf8");
@@ -243,9 +243,9 @@ describe.each([
 
   test("check_test project_dir does not replace the startup project's settings", async () => {
     await withSettingsFixture(args(), async ({ project, session, connect }) => {
-      await writeFile(join(project, ".qa", "settings.json"), '{"defaultModel":"project-model"}');
+      await writeFile(join(project, ".eq", "settings.json"), '{"defaultModel":"project-model"}');
       await mkdir(join(session, "src"));
-      await writeFile(join(session, "src", "sum.test.ts"), "// QA-SETTINGS-CHECK-MARKER");
+      await writeFile(join(session, "src", "sum.test.ts"), "// EQ-SETTINGS-CHECK-MARKER");
       const configuredClient = await connect();
       const result = await callTool(configuredClient, "check_test", {
         project_dir: session,
@@ -253,19 +253,19 @@ describe.each([
       });
       expect(result.value).toMatchObject({
         status: "completed",
-        text: expect.stringContaining("QA-SETTINGS-CHECK-MARKER"),
+        text: expect.stringContaining("EQ-SETTINGS-CHECK-MARKER"),
       });
       expect(fake.models.at(-1)).toBe("project-model");
     });
   }, 30_000);
 
-  test("explicit QA agent directory and model overrides remain supported", async () => {
+  test("explicit EQ agent directory and model overrides remain supported", async () => {
     await withSettingsFixture(args(), async ({ project, connect }) => {
-      await writeFile(join(project, ".qa", "settings.json"), '{"defaultModel":"project-model"}');
+      await writeFile(join(project, ".eq", "settings.json"), '{"defaultModel":"project-model"}');
       const configuredClient = await connect({
-        QA_AGENT_DIR: fake.agentDir,
-        QA_PROVIDER: "fake",
-        QA_MODEL: "test-model",
+        EQ_AGENT_DIR: fake.agentDir,
+        EQ_PROVIDER: "fake",
+        EQ_MODEL: "test-model",
       });
       const result = await callTool(configuredClient, "ask_pi", { prompt: "MODEL" });
       expect(result.value.status).toBe("completed");
@@ -273,10 +273,10 @@ describe.each([
     });
   }, 30_000);
 
-  test("missing .qa settings do not fall back to Pi settings", async () => {
+  test("missing .eq settings do not fall back to Pi settings", async () => {
     await withSettingsFixture(args(), async ({ agentDir, connect }) => {
       await rm(join(agentDir, "settings.json"));
-      const configuredClient = await connect({ QA_PROVIDER: "fake", QA_MODEL: "test-model" });
+      const configuredClient = await connect({ EQ_PROVIDER: "fake", EQ_MODEL: "test-model" });
       const result = await callTool(configuredClient, "ask_pi", { prompt: "MODEL" });
       expect(result.value.status).toBe("completed");
       expect(fake.models.at(-1)).toBe("test-model");
@@ -284,13 +284,13 @@ describe.each([
   }, 30_000);
 
   test.each(["global", "project"] as const)(
-    "invalid %s .qa settings stop startup with scope and path",
+    "invalid %s .eq settings stop startup with scope and path",
     async (scope) => {
       await withSettingsFixture(args(), async ({ project, session, agentDir }) => {
         const path =
           scope === "global"
             ? join(agentDir, "settings.json")
-            : join(project, ".qa", "settings.json");
+            : join(project, ".eq", "settings.json");
         await writeFile(path, "{invalid-settings");
         await expect(
           execFileAsync("bun", args(), {
@@ -298,14 +298,14 @@ describe.each([
             env: {
               PATH: process.env.PATH ?? "",
               HOME: resolve(agentDir, "../.."),
-              QA_AGENT_DIR: agentDir,
-              QA_CWD: session,
+              EQ_AGENT_DIR: agentDir,
+              EQ_CWD: session,
             },
             timeout: 5_000,
           }),
         ).rejects.toMatchObject({
           stderr: expect.stringContaining(
-            `Cannot load ${scope} settings at ${scope === "project" ? join(await realpath(project), ".qa", "settings.json") : path}`,
+            `Cannot load ${scope} settings at ${scope === "project" ? join(await realpath(project), ".eq", "settings.json") : path}`,
           ),
         });
         expect(await readFile(path, "utf8")).toBe("{invalid-settings");

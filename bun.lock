@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "quality-analysis-mcp",
+      "name": "engineering-quality-mcp",
       "dependencies": {
         "@earendil-works/pi-coding-agent": "1.5.2",
         "@modelcontextprotocol/server": "^2.4.0",

@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "qa": {
+    "eq": {
       "type": "stdio",
       "command": "bun",
       "args": ["./src/index.ts"]

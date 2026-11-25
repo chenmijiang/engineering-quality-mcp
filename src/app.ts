@@ -36,7 +36,7 @@ export class App {
   /** Creates the MCP server for one connection; all connections share the app's sessions. */
   createServer(): McpServer {
     const server = new McpServer(
-      { name: "quality-analysis-mcp", version: "1.0.0" },
+      { name: "engineering-quality-mcp", version: "1.0.0" },
       { instructions: serverInstructions.trim() },
     );
     for (const tool of this.#tools) tool.register(server);

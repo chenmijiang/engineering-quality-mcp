@@ -11,7 +11,7 @@ import { expect, test } from "vitest";
 const execFileAsync = promisify(execFile);
 
 async function expectServerToInitializeAndPing(command: string, args: string[]) {
-  const workspace = await mkdtemp(join(tmpdir(), "qa-stdio-smoke-"));
+  const workspace = await mkdtemp(join(tmpdir(), "eq-stdio-smoke-"));
   const client = new Client({ name: "test-client", version: "1.0.0" });
   const transport = new StdioClientTransport({
     command,
@@ -22,7 +22,10 @@ async function expectServerToInitializeAndPing(command: string, args: string[]) 
 
   try {
     await client.connect(transport);
-    expect(client.getServerVersion()).toEqual({ name: "quality-analysis-mcp", version: "1.0.0" });
+    expect(client.getServerVersion()).toEqual({
+      name: "engineering-quality-mcp",
+      version: "1.0.0",
+    });
     await expect(client.ping()).resolves.toEqual({});
   } finally {
     await client.close();
@@ -35,7 +38,7 @@ test("a client can initialize and ping the stdio server from source", async () =
 });
 
 test("a client can initialize and ping the built stdio server", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "quality-analysis-mcp-"));
+  const directory = await mkdtemp(join(tmpdir(), "engineering-quality-mcp-"));
   const bundle = join(directory, "index.js");
 
   try {

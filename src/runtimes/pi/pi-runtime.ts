@@ -18,7 +18,7 @@ import { createReadOnlySettings } from "./settings";
 import systemPrompt from "./system.md" with { type: "text" };
 
 export interface PiRuntimeOptions {
-  /** Process startup directory whose .qa settings seed every session. */
+  /** Process startup directory whose .eq settings seed every session. */
   projectCwd: string;
   agentDir: string;
   /** Directory for JSONL transcripts named by the host-facing session id. */
@@ -92,7 +92,7 @@ class PiSession implements AgentSession {
     if (!reason) return;
     try {
       // Skipped by Pi when the transcript has no conversation yet.
-      this.session.sessionManager.appendCustomEntry("qa_close", { reason });
+      this.session.sessionManager.appendCustomEntry("eq_close", { reason });
     } catch {
       // A transcript write failure must not prevent closing the session.
     }

@@ -7,7 +7,7 @@ import { SettingsManager } from "@earendil-works/pi-coding-agent";
 export function createReadOnlySettings(projectCwd: string, agentDir: string): SettingsManager {
   const paths = {
     global: join(agentDir, "settings.json"),
-    project: join(projectCwd, ".qa", "settings.json"),
+    project: join(projectCwd, ".eq", "settings.json"),
   };
   // These synchronous, read-only snapshots require no writer lock and never create lock files.
   // Each scope is read once; there is no cross-file transaction. Writers should replace files

@@ -83,7 +83,7 @@ export type FakeProvider = {
 
 /** Starts the scripted OpenAI-compatible provider and writes a Pi agent dir that points at it. */
 export async function startFakeProvider(): Promise<FakeProvider> {
-  const agentDir = await mkdtemp(join(tmpdir(), "quality-analysis-mcp-pi-"));
+  const agentDir = await mkdtemp(join(tmpdir(), "engineering-quality-mcp-pi-"));
   const requests: WireMessage[][] = [];
   const models: string[] = [];
   const server = createServer((request, response) => {
@@ -124,10 +124,10 @@ export async function startFakeProvider(): Promise<FakeProvider> {
             Object.entries({
               PATH: process.env.PATH ?? "",
               HOME: agentDir,
-              QA_AGENT_DIR: agentDir,
-              QA_PROVIDER: "fake",
-              QA_MODEL: "test-model",
-              QA_RUN_TIMEOUT_MS: "30000",
+              EQ_AGENT_DIR: agentDir,
+              EQ_PROVIDER: "fake",
+              EQ_MODEL: "test-model",
+              EQ_RUN_TIMEOUT_MS: "30000",
               ...options.env,
             }).filter((entry): entry is [string, string] => entry[1] !== undefined),
           ),

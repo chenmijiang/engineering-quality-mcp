@@ -46,7 +46,7 @@ const listedFiles = (prompt = "") =>
 
 beforeAll(async () => {
   fake = await startFakeProvider();
-  workspace = await mkdtemp(join(tmpdir(), "quality-analysis-mcp-check-"));
+  workspace = await mkdtemp(join(tmpdir(), "engineering-quality-mcp-check-"));
   project = await makeProject("project", {
     "src/sum.ts": "export const sum = (a: number, b: number) => a + b;\n",
     "src/sum.test.ts": "// SUM-TEST-MARKER\nexpect(sum(1, 2)).toBe(3);\n",

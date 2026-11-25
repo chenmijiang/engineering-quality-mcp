@@ -1,20 +1,20 @@
-# quality-analysis-mcp
+# engineering-quality-mcp
 
 A stdio MCP server that exposes a Pi agent and quality-check tools to MCP clients. It uses MCP tool calls for agent-to-agent communication and does not require sampling, elicitation, or client-specific extensions.
 
 ## Requirements and startup
 
-Bun `>= 1.4.5` is required. Build the server with `bun run build`; this creates `bin/index.js`. Run it with `bun bin/index.js`, or use the package command `qa-mcp` after installing or linking this package.
+Bun `>= 1.4.5` is required. Build the server with `bun run build`; this creates `bin/index.js`. Run it with `bun bin/index.js`, or use the package command `eq-mcp` after installing or linking this package.
 
 Configure an MCP client to run the built entry:
 
 ```json
 {
   "mcpServers": {
-    "pi": {
+    "eq": {
       "type": "stdio",
       "command": "bun",
-      "args": ["/absolute/path/to/quality-analysis-mcp/bin/index.js"]
+      "args": ["/absolute/path/to/engineering-quality-mcp/bin/index.js"]
     }
   }
 }
@@ -24,25 +24,25 @@ Configure an MCP client to run the built entry:
 
 The server has its own Pi-compatible configuration directory. By default, it reads:
 
-- `~/.qa/agent/settings.json`: global settings.
-- `<server-startup-directory>/.qa/settings.json`: project settings, merged over global settings.
-- `~/.qa/agent/models.json` and `auth.json`: model definitions and credentials.
+- `~/.eq/agent/settings.json`: global settings.
+- `<server-startup-directory>/.eq/settings.json`: project settings, merged over global settings.
+- `~/.eq/agent/models.json` and `auth.json`: model definitions and credentials.
 
-Set `QA_AGENT_DIR` to use another agent directory for the global settings, models and credentials. These files do not fall back to `~/.pi/agent`; project settings do not fall back to `.pi/settings.json`. Pi's provider API-key environment variables can still be used. To use the Pi CLI to configure credentials in the same directory, set its `PI_CODING_AGENT_DIR` to that directory before starting Pi.
+Set `EQ_AGENT_DIR` to use another agent directory for the global settings, models and credentials. These files do not fall back to `~/.pi/agent`; project settings do not fall back to `.pi/settings.json`. Pi's provider API-key environment variables can still be used. To use the Pi CLI to configure credentials in the same directory, set its `PI_CODING_AGENT_DIR` to that directory before starting Pi.
 
-The startup directory is the working directory of the MCP server process, as set by the client. Settings are loaded once at startup; restart the server after changes. `QA_CWD` changes the default working directory for agent sessions, not where project settings are loaded. Likewise, `check_test.project_dir` does not change the settings source.
+The startup directory is the working directory of the MCP server process, as set by the client. Settings are loaded once at startup; restart the server after changes. `EQ_CWD` changes the default working directory for agent sessions, not where project settings are loaded. Likewise, `check_test.project_dir` does not change the settings source.
 
 Missing settings files are allowed; unreadable or malformed files prevent startup. Settings are read as snapshots without a file lock or a cross-file transaction. Avoid editing them while the server is starting; writers should replace each file atomically rather than modify it in place.
 
 | Environment variable      | Default                   | Purpose                                            |
 | ------------------------- | ------------------------- | -------------------------------------------------- |
-| `QA_AGENT_DIR`            | `~/.qa/agent`             | Global settings, models and credentials directory. |
-| `QA_CWD`                  | Server startup directory  | Default agent session working directory.           |
-| `QA_SESSION_DIR`          | `<QA_AGENT_DIR>/sessions` | Session transcript directory.                      |
-| `QA_PROVIDER`, `QA_MODEL` | Unset                     | Explicit model; set both or neither.               |
-| `QA_RUN_TIMEOUT_MS`       | `300000`                  | Whole-turn deadline, including reply wait.         |
-| `QA_IDLE_TIMEOUT_MS`      | `1800000`                 | Idle session retention.                            |
-| `QA_MAX_SESSIONS`         | `8`                       | Maximum number of sessions.                        |
+| `EQ_AGENT_DIR`            | `~/.eq/agent`             | Global settings, models and credentials directory. |
+| `EQ_CWD`                  | Server startup directory  | Default agent session working directory.           |
+| `EQ_SESSION_DIR`          | `<EQ_AGENT_DIR>/sessions` | Session transcript directory.                      |
+| `EQ_PROVIDER`, `EQ_MODEL` | Unset                     | Explicit model; set both or neither.               |
+| `EQ_RUN_TIMEOUT_MS`       | `300000`                  | Whole-turn deadline, including reply wait.         |
+| `EQ_IDLE_TIMEOUT_MS`      | `1800000`                 | Idle session retention.                            |
+| `EQ_MAX_SESSIONS`         | `8`                       | Maximum number of sessions.                        |
 
 ## Tools
 
@@ -63,4 +63,4 @@ The report contains a summary, findings grouped by file with severity and eviden
 
 Live sessions and pending questions exist only in the server process; there is no session resumption after restart, crash recovery, or token-level streaming.
 
-Each session's transcript is written for diagnosis as Pi JSONL at `<QA_SESSION_DIR>/<timestamp>_<session_id>.jsonl`, once its first message exists. It contains prompts, model responses, tool calls and results (including file contents Pi read and host answers), and, when the session closes, a final `custom` entry with `customType: "qa_close"` and the close reason. Files are never pruned or read back by the server. Pi receives read-only file tools plus `ask_host`. Extensions, skills, prompt templates, and `AGENTS` files are not loaded. This tool restriction is not an operating-system sandbox.
+Each session's transcript is written for diagnosis as Pi JSONL at `<EQ_SESSION_DIR>/<timestamp>_<session_id>.jsonl`, once its first message exists. It contains prompts, model responses, tool calls and results (including file contents Pi read and host answers), and, when the session closes, a final `custom` entry with `customType: "eq_close"` and the close reason. Files are never pruned or read back by the server. Pi receives read-only file tools plus `ask_host`. Extensions, skills, prompt templates, and `AGENTS` files are not loaded. This tool restriction is not an operating-system sandbox.

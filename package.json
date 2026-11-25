@@ -1,19 +1,19 @@
 {
-  "name": "quality-analysis-mcp",
+  "name": "engineering-quality-mcp",
   "version": "1.0.0",
   "private": true,
-  "description": "Quality analysis MCP server",
-  "homepage": "https://github.com/chenmijiang/quality-analysis-mcp#readme",
+  "description": "Engineering quality MCP server",
+  "homepage": "https://github.com/chenmijiang/engineering-quality-mcp#readme",
   "bugs": {
-    "url": "https://github.com/chenmijiang/quality-analysis-mcp/issues"
+    "url": "https://github.com/chenmijiang/engineering-quality-mcp/issues"
   },
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/chenmijiang/quality-analysis-mcp.git"
+    "url": "git+https://github.com/chenmijiang/engineering-quality-mcp.git"
   },
   "bin": {
-    "qa-mcp": "./bin/index.js"
+    "eq-mcp": "./bin/index.js"
   },
   "files": [
     "bin/**"
