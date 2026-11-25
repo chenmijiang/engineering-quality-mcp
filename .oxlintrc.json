@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": ["dist/**", "coverage/**"],
+  "ignorePatterns": ["bin/**", "dist/**", "coverage/**"],
   "options": {
     "typeAware": true,
     "typeCheck": true

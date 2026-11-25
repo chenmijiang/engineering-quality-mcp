@@ -3,7 +3,7 @@
     "qa": {
       "type": "stdio",
       "command": "bun",
-      "args": ["./dist/index.js"]
+      "args": ["./src/index.ts"]
     }
   }
 }

@@ -5,6 +5,7 @@ import { Glob } from "bun";
 
 const IGNORED_DIRS: Record<string, true> = {
   node_modules: true,
+  bin: true,
   dist: true,
   build: true,
   coverage: true,

@@ -4,7 +4,9 @@ A stdio MCP server that exposes a Pi agent and quality-check tools to MCP client
 
 ## Requirements and startup
 
-Bun `>= 1.4.5` is required. Configure an MCP client to run the source entry:
+Bun `>= 1.4.5` is required. Build the server with `bun run build`; this creates `bin/index.js`. Run it with `bun bin/index.js`, or use the package command `qa-mcp` after installing or linking this package.
+
+Configure an MCP client to run the built entry:
 
 ```json
 {
@@ -12,13 +14,11 @@ Bun `>= 1.4.5` is required. Configure an MCP client to run the source entry:
     "pi": {
       "type": "stdio",
       "command": "bun",
-      "args": ["/absolute/path/to/quality-analysis-mcp/src/index.ts"]
+      "args": ["/absolute/path/to/quality-analysis-mcp/bin/index.js"]
     }
   }
 }
 ```
-
-`bun run build` creates `dist/index.js`; start the built entry with `bun dist/index.js`.
 
 ## Configuration
 

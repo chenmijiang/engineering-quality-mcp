@@ -55,6 +55,7 @@ beforeAll(async () => {
     "__tests__/types.d.ts": "",
     "docs/guide.md": "",
     "node_modules/pkg/index.test.js": "",
+    "bin/index.test.js": "",
     "dist/index.test.js": "",
     ".cache/stale.test.ts": "",
     "lib/constructor/helper.test.ts": "",
