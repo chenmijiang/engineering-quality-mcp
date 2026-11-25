@@ -27,6 +27,11 @@ async function expectServerToInitializeAndPing(command: string, args: string[]) 
       version: "1.0.0",
     });
     await expect(client.ping()).resolves.toEqual({});
+    expect((await client.listTools()).tools.map((tool) => tool.name).sort()).toEqual([
+      "ask_pi",
+      "cancel_pi",
+      "reply_pi",
+    ]);
   } finally {
     await client.close();
     await rm(workspace, { recursive: true, force: true });

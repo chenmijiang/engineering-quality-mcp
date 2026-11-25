@@ -241,24 +241,6 @@ describe.each([
     });
   }, 30_000);
 
-  test("check_test project_dir does not replace the startup project's settings", async () => {
-    await withSettingsFixture(args(), async ({ project, session, connect }) => {
-      await writeFile(join(project, ".eq", "settings.json"), '{"defaultModel":"project-model"}');
-      await mkdir(join(session, "src"));
-      await writeFile(join(session, "src", "sum.test.ts"), "// EQ-SETTINGS-CHECK-MARKER");
-      const configuredClient = await connect();
-      const result = await callTool(configuredClient, "check_test", {
-        project_dir: session,
-        scope: ["src/sum.test.ts"],
-      });
-      expect(result.value).toMatchObject({
-        status: "completed",
-        text: expect.stringContaining("EQ-SETTINGS-CHECK-MARKER"),
-      });
-      expect(fake.models.at(-1)).toBe("project-model");
-    });
-  }, 30_000);
-
   test("explicit EQ agent directory and model overrides remain supported", async () => {
     await withSettingsFixture(args(), async ({ project, connect }) => {
       await writeFile(join(project, ".eq", "settings.json"), '{"defaultModel":"project-model"}');

@@ -7,11 +7,10 @@ This repository implements a stdio MCP server backed by Pi. Use `README.md` for 
 - Keep `core` independent of features and concrete agent SDKs. Features depend on core contracts; runtimes implement those contracts and stay independent of features. `App` is the composition root that wires implementations together.
 - Preserve these boundaries when adding behavior. The import restrictions in `.oxlintrc.json` are executable checks; follow them rather than weakening them to make a dependency compile.
 - Across `src` directories, use the `@/` alias. Relative imports stay within the same directory or its descendants.
-- Keep shared session and tool behavior in the existing core/features abstractions instead of duplicating it in individual checks or runtime adapters.
+- Keep shared session and tool behavior in the existing core/features abstractions instead of duplicating it in individual tools or runtime adapters.
 
-## Checks and prompts
+## Prompts
 
-- A check implements the `Check` contract, owns its check-specific prompts, and is registered through `builtinChecks()`. Reuse the shared check tool and scope-resolution path unless the behavior genuinely differs for every check.
 - Keep prompts beside the code that consumes them. Maintain the distinction between host-facing tool descriptions and Pi-facing review instructions or quality criteria.
 - When changing a prompt, check its reader and how it is assembled before editing; the prompt is part of runtime behavior, not general documentation.
 

@@ -48,17 +48,11 @@ function toolCall(id: string, name: string, args: object) {
   );
 }
 
-/**
- * Scripted model: "ASK" asks the host a question and answering "NEXT" asks a second one;
- * a check_test prompt reads `src/sum.test.ts`; otherwise it answers `CODE:<last tool result>`.
- */
+/** Scripted model: "ASK" asks the host a question; "NEXT" asks a second one. */
 function reply(messages: WireMessage[]) {
   const last = messages.at(-1);
   if (last?.role === "user" && messageText(last) === "ASK") {
     return toolCall("call-1", "ask_host", { question: "What is the code?" });
-  }
-  if (last?.role === "user" && messageText(last).includes("<files>")) {
-    return toolCall("call-read", "read", { path: "src/sum.test.ts" });
   }
   if (last?.role === "tool" && messageText(last) === "NEXT") {
     return toolCall("call-2", "ask_host", { question: "What is the second code?" });
@@ -70,8 +64,6 @@ function reply(messages: WireMessage[]) {
 export type FakeProvider = {
   /** Pi agent dir configured for the fake provider; also the server's cwd and HOME. */
   agentDir: string;
-  /** Message lists of every model request received, in order. */
-  requests: WireMessage[][];
   /** Model ids observed on the provider wire, in request order. */
   models: string[];
   connect(
@@ -84,7 +76,6 @@ export type FakeProvider = {
 /** Starts the scripted OpenAI-compatible provider and writes a Pi agent dir that points at it. */
 export async function startFakeProvider(): Promise<FakeProvider> {
   const agentDir = await mkdtemp(join(tmpdir(), "engineering-quality-mcp-pi-"));
-  const requests: WireMessage[][] = [];
   const models: string[] = [];
   const server = createServer((request, response) => {
     let body = "";
@@ -92,7 +83,6 @@ export async function startFakeProvider(): Promise<FakeProvider> {
     request.on("end", () => {
       const { messages, model } = JSON.parse(body) as { messages: WireMessage[]; model: string };
       models.push(model);
-      requests.push(messages);
       response.writeHead(200, { "content-type": "text/event-stream" });
       response.end(`${reply(messages)}data: [DONE]\n\n`);
     });
@@ -111,7 +101,6 @@ export async function startFakeProvider(): Promise<FakeProvider> {
 
   return {
     agentDir,
-    requests,
     models,
     async connect(args: string[], options: Parameters<FakeProvider["connect"]>[1] = {}) {
       const client = new Client({ name: "generic-client", version: "1.0.0" });

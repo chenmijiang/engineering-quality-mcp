@@ -3,8 +3,6 @@ import { McpServer } from "@modelcontextprotocol/server";
 import type { AgentRuntime, SessionBroker } from "@/core/contracts";
 import { InMemorySessionBroker } from "@/core/session-broker";
 import type { ToolModule } from "@/core/tool-module";
-import { builtinChecks, type Check } from "@/features/checks";
-import { CheckTool } from "@/features/checks/check-tool";
 import { SessionTools } from "@/features/session-tools";
 import { PiRuntime } from "@/runtimes/pi/pi-runtime";
 
@@ -14,8 +12,6 @@ import serverInstructions from "./server-instructions.md" with { type: "text" };
 export interface AppOverrides {
   /** Agent backend; defaults to the Pi SDK runtime built from `config`. */
   runtime?: AgentRuntime;
-  /** Checks exposed as `check_<name>` tools; defaults to `builtinChecks()`. */
-  checks?: Check[];
 }
 
 /** Composition root: the only place that chooses concrete implementations. */
@@ -27,10 +23,7 @@ export class App {
   constructor(config: Config, overrides: AppOverrides = {}) {
     this.#runtime = overrides.runtime ?? new PiRuntime(config);
     this.#sessions = new InMemorySessionBroker(this.#runtime, config);
-    this.#tools = [
-      new SessionTools(this.#sessions),
-      ...(overrides.checks ?? builtinChecks()).map((check) => new CheckTool(check, this.#sessions)),
-    ];
+    this.#tools = [new SessionTools(this.#sessions)];
   }
 
   /** Creates the MCP server for one connection; all connections share the app's sessions. */
