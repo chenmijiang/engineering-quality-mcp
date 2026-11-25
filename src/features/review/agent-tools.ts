@@ -40,6 +40,36 @@ function clip(line: string) {
 }
 
 /**
+ * Prefixes each hunk line with the line number findings cite: the base line for removed lines,
+ * the head line otherwise.
+ */
+function numberPatch(patch: string) {
+  let oldLine = 0;
+  let newLine = 0;
+  let inHunk = false;
+  return patch
+    .split("\n")
+    .map((line) => {
+      const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+      if (hunk) {
+        oldLine = Number(hunk[1]);
+        newLine = Number(hunk[2]);
+        inHunk = true;
+        return line;
+      }
+      if (!inHunk) return line;
+      if (line.startsWith("+")) return `${newLine++}\t${line}`;
+      if (line.startsWith("-")) return `${oldLine++}\t${line}`;
+      if (line.startsWith(" ")) {
+        oldLine++;
+        return `${newLine++}\t${line}`;
+      }
+      return line;
+    })
+    .join("\n");
+}
+
+/**
  * Read-only views of the review target pinned to its base and head. In commit and range mode
  * these are the only way to read the reviewed revisions: the work tree may hold other content.
  */
@@ -72,7 +102,7 @@ export function reviewTools(target: ReviewTarget, changes: Change[]): AgentTool[
   return [
     defineTool(
       "read_diff",
-      "Read the captured unified diff of one changed file listed in the task. Accepts the new path, or the old path of a rename or deletion.",
+      "Read the captured unified diff of one changed file listed in the task. Each hunk line is prefixed with its line number: the base line for removed (-) lines, the head line otherwise. Accepts the new path, or the old path of a rename or deletion.",
       z.object({ path: z.string().min(1).describe("Changed file path as listed in the task") }),
       async ({ path }) => {
         const wanted = repoPath(path);
@@ -82,7 +112,9 @@ export function reviewTools(target: ReviewTarget, changes: Change[]): AgentTool[
           .map((c) => {
             const name = c.oldPath ? `${c.oldPath} -> ${c.path}` : c.path;
             const header = `# ${c.status}${c.untracked ? " (untracked)" : ""}: ${name}`;
-            return c.skipped ? `${header}\nNot reviewable: ${c.skipped}` : `${header}\n${c.patch}`;
+            return c.skipped
+              ? `${header}\nNot reviewable: ${c.skipped}`
+              : `${header}\n${numberPatch(c.patch ?? "")}`;
           })
           .join("\n\n");
       },
@@ -154,10 +186,16 @@ export function reviewTools(target: ReviewTarget, changes: Change[]): AgentTool[
         const args = sha
           ? ["ls-tree", "-r", "-z", "--name-only", sha]
           : ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate"];
-        const { stdout } = await git(repo, [...args, "--", ...optionalPathspec(path)], { signal });
-        const files = stdout
+        const pathspec = ["--", ...optionalPathspec(path)];
+        const [listed, deleted] = await Promise.all([
+          git(repo, [...args, ...pathspec], { signal }),
+          // The index still lists files deleted from the work tree without staging.
+          sha ? undefined : git(repo, ["ls-files", "-z", "--deleted", ...pathspec], { signal }),
+        ]);
+        const gone = new Set(deleted?.stdout.split("\0"));
+        const files = listed.stdout
           .split("\0")
-          .filter((file) => file && !isExcluded(file))
+          .filter((file) => file && !gone.has(file) && !isExcluded(file))
           .sort();
         if (!files.length) return `No files at ${label(side)}`;
         const note =

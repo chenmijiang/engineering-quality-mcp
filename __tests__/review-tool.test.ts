@@ -1,4 +1,6 @@
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, expect, test } from "vitest";
@@ -101,7 +103,7 @@ test("a commit review gives the agent the pinned revisions, not the current work
   expect(prompts[0]).toContain("<host-instructions>\nAnswer in Chinese\n</host-instructions>");
 
   expect(await agentTool("read_diff")({ path: "src/auth.ts" })).toContain(
-    "-export const allow = false;\n+export const allow = true;",
+    "1\t-export const allow = false;\n1\t+export const allow = true;",
   );
   expect(await agentTool("read_file_at")({ path: "src/auth.ts", rev: "head" })).toContain(
     "1\texport const allow = true;",
@@ -129,6 +131,8 @@ test("a workspace review reads the head from the live work tree", async () => {
   expect(await agentTool("read_file_at")({ path: "a.ts", rev: "head" })).toContain("1\tedited");
   expect(await agentTool("read_file_at")({ path: "a.ts", rev: "base" })).toContain("1\tcommitted");
   expect(await agentTool("list_files_at")({ rev: "head" })).toBe("a.ts\nnew.ts");
+  await rm(join(repo.dir, "a.ts"));
+  expect(await agentTool("list_files_at")({ rev: "head" })).toBe("new.ts");
   expect(await agentTool("grep_at")({ text: "untracked", rev: "head" })).toBe(
     "new.ts:1: untracked",
   );
@@ -156,6 +160,24 @@ test("agent tools reject paths outside the repository and unknown changes", asyn
   await expect(agentTool("read_diff")({ path: "other.ts" })).rejects.toThrow("not a changed file");
   await expect(agentTool("grep_at")({ text: "x", rev: "head", path: "../" })).rejects.toThrow(
     "Invalid repository-relative path",
+  );
+});
+
+test("read_diff numbers removed lines by base and other lines by head", async () => {
+  repo = await createRepo();
+  const lines = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`);
+  await repo.write("a.ts", `${lines.join("\n")}\n`);
+  await repo.commit("init");
+  lines.splice(9, 1, "changed 10a", "changed 10b");
+  await repo.write("a.ts", `${lines.join("\n")}\n`);
+  await connect();
+  await review({ repo: repo.dir });
+
+  const diff = await agentTool("read_diff")({ path: "a.ts" });
+
+  expect(diff).toContain("@@ -7,7 +7,8 @@");
+  expect(diff).toContain(
+    "9\t line 9\n10\t-line 10\n10\t+changed 10a\n11\t+changed 10b\n12\t line 11\n",
   );
 });
 

@@ -1,7 +1,15 @@
 import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 
-import { DIFF_FLAGS, emptyTree, git, isBinary, readWorktreeFile, resolveCommit } from "./git";
+import {
+  DIFF_FLAGS,
+  emptyTree,
+  git,
+  isBinary,
+  OutputLimitError,
+  readWorktreeFile,
+  resolveCommit,
+} from "./git";
 
 /** Directory names whose files are never reviewed, at any depth. */
 const EXCLUDED_DIRS: Record<string, true> = {
@@ -173,15 +181,21 @@ function classifyPatch(patch: string): SkipReason | undefined {
   return undefined;
 }
 
+/** Returns undefined when the patch exceeds the size limit; reading stops at the limit. */
 async function trackedPatch(target: ReviewTarget, change: Change, signal?: AbortSignal) {
   const revisions = target.head ? [target.base, target.head] : [target.base];
   const paths = change.oldPath ? [change.oldPath, change.path] : [change.path];
-  const { stdout } = await git(
-    target.repo,
-    ["diff", ...DIFF_FLAGS, "-U3", ...revisions, "--", ...paths],
-    { signal },
-  );
-  return stdout;
+  try {
+    const { stdout } = await git(
+      target.repo,
+      ["diff", ...DIFF_FLAGS, "-U3", ...revisions, "--", ...paths],
+      { signal, maxBytes: MAX_PATCH_BYTES },
+    );
+    return stdout;
+  } catch (error) {
+    if (error instanceof OutputLimitError) return undefined;
+    throw error;
+  }
 }
 
 async function untrackedChange(repo: string, path: string, signal?: AbortSignal) {
@@ -229,7 +243,10 @@ export async function captureChanges(
         .split("\0")
         .filter(Boolean);
 
-  const eligible = tracked.filter((change) => !change.skipped).length + untracked.length;
+  // Binary and oversized files are only known after capturing their patches, so they count.
+  const eligible =
+    tracked.filter((change) => !change.skipped).length +
+    untracked.filter((path) => !isExcluded(path)).length;
   if (eligible > MAX_REVIEW_FILES) {
     throw new Error(
       `${eligible} changed files exceed the limit of ${MAX_REVIEW_FILES}; narrow with paths, a commit, or a smaller range`,
@@ -241,8 +258,8 @@ export async function captureChanges(
     if (!change.skipped) {
       const patch = await trackedPatch(target, change, signal);
       // The index is not refreshed, so stat-only differences can appear without content changes.
-      if (!patch) continue;
-      change.skipped = classifyPatch(patch);
+      if (patch === "") continue;
+      change.skipped = patch === undefined ? "too large" : classifyPatch(patch);
       if (!change.skipped) change.patch = patch;
     }
     changes.push(change);

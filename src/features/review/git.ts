@@ -14,41 +14,52 @@ const GIT_CONFIG = ["-c", "core.fsmonitor=false", "-c", "diff.autoRefreshIndex=f
 export const DIFF_FLAGS = ["--no-ext-diff", "--no-textconv", "--no-color", "--find-renames"];
 const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 
+/** Thrown when git writes more than the caller's `maxBytes`; the process is killed. */
+export class OutputLimitError extends Error {}
+
 /** Runs git without a shell and returns stdout; exit codes outside `ok` reject with stderr. */
 export function git(
   repo: string,
   args: string[],
-  { signal, ok = [0] }: { signal?: AbortSignal; ok?: number[] } = {},
+  {
+    signal,
+    ok = [0],
+    maxBytes = MAX_OUTPUT_BYTES,
+  }: { signal?: AbortSignal; ok?: number[]; maxBytes?: number } = {},
 ): Promise<{ stdout: string; bytes: Buffer; exitCode: number }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("git", [...GIT_CONFIG, ...args], {
-      cwd: repo,
-      env: { ...process.env, ...GIT_ENV },
-      stdio: ["ignore", "pipe", "pipe"],
-      signal,
-    });
-    const out: Buffer[] = [];
-    const err: Buffer[] = [];
-    let size = 0;
-    child.stdout.on("data", (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_OUTPUT_BYTES) child.kill();
-      else out.push(chunk);
-    });
-    child.stderr.on("data", (chunk: Buffer) => err.push(chunk));
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (size > MAX_OUTPUT_BYTES) {
-        reject(new Error(`git ${args[0]} output exceeds ${MAX_OUTPUT_BYTES} bytes`));
-      } else if (code !== null && ok.includes(code)) {
-        const bytes = Buffer.concat(out);
-        resolve({ stdout: bytes.toString("utf8"), bytes, exitCode: code });
-      } else {
-        const message = Buffer.concat(err).toString("utf8").trim() || `exit code ${code}`;
-        reject(new Error(`git ${args[0]} failed: ${message}`));
-      }
-    });
+  const { promise, resolve, reject } = Promise.withResolvers<{
+    stdout: string;
+    bytes: Buffer;
+    exitCode: number;
+  }>();
+  const child = spawn("git", [...GIT_CONFIG, ...args], {
+    cwd: repo,
+    env: { ...process.env, ...GIT_ENV },
+    stdio: ["ignore", "pipe", "pipe"],
+    signal,
   });
+  const out: Buffer[] = [];
+  const err: Buffer[] = [];
+  let size = 0;
+  child.stdout.on("data", (chunk: Buffer) => {
+    size += chunk.length;
+    if (size > maxBytes) child.kill();
+    else out.push(chunk);
+  });
+  child.stderr.on("data", (chunk: Buffer) => err.push(chunk));
+  child.on("error", reject);
+  child.on("close", (code) => {
+    if (size > maxBytes) {
+      reject(new OutputLimitError(`git ${args[0]} output exceeds ${maxBytes} bytes`));
+    } else if (code !== null && ok.includes(code)) {
+      const bytes = Buffer.concat(out);
+      resolve({ stdout: bytes.toString("utf8"), bytes, exitCode: code });
+    } else {
+      const message = Buffer.concat(err).toString("utf8").trim() || `exit code ${code}`;
+      reject(new Error(`git ${args[0]} failed: ${message}`));
+    }
+  });
+  return promise;
 }
 
 /**

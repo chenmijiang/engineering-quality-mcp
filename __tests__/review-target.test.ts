@@ -4,7 +4,14 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { resolveRepo } from "@/features/review/git";
-import { captureChanges, resolveTarget, type TargetRequest } from "@/features/review/target";
+import {
+  captureChanges,
+  MAX_PATCH_BYTES,
+  MAX_REVIEW_FILES,
+  resolveTarget,
+  type Change,
+  type TargetRequest,
+} from "@/features/review/target";
 
 import { createRepo, type GitRepo } from "./support/git-repo";
 
@@ -19,7 +26,7 @@ async function review(request: TargetRequest = {}, paths: string[] = []) {
   return { target, changes: await captureChanges(target, paths) };
 }
 
-const summary = (changes: Awaited<ReturnType<typeof review>>["changes"]) =>
+const summary = (changes: Change[]) =>
   changes.map(({ status, path, oldPath, skipped }) => ({ status, path, oldPath, skipped }));
 
 describe("workspace", () => {
@@ -131,6 +138,50 @@ describe("workspace", () => {
     expect(summary(changes)).toEqual([
       { status: "added", path: "image.bin", skipped: "binary" },
       { status: "added", path: "link", skipped: "symlink" },
+    ]);
+  });
+
+  test("untracked files in excluded directories do not count toward the file limit", async () => {
+    repo = await createRepo();
+    await repo.commit("init");
+    await repo.write("app.ts", "app\n");
+    for (let i = 0; i <= MAX_REVIEW_FILES; i++) await repo.write(`vendor/dep${i}.js`, "dep\n");
+
+    const { changes } = await review();
+
+    expect(changes.filter((change) => !change.skipped).map((change) => change.path)).toEqual([
+      "app.ts",
+    ]);
+    expect(changes.filter((change) => change.skipped === "excluded directory")).toHaveLength(
+      MAX_REVIEW_FILES + 1,
+    );
+  });
+
+  test("more reviewable files than the limit are rejected before capturing patches", async () => {
+    repo = await createRepo();
+    await repo.commit("init");
+    for (let i = 0; i <= MAX_REVIEW_FILES; i++) await repo.write(`src/f${i}.ts`, "x\n");
+
+    await expect(review()).rejects.toThrow(`exceed the limit of ${MAX_REVIEW_FILES}`);
+  });
+
+  test("a tracked patch over the size limit is not reviewable and does not fail the review", async () => {
+    repo = await createRepo();
+    await repo.write("big.txt", "a\n");
+    await repo.write("small.ts", "one\n");
+    await repo.commit("init");
+    await repo.write(
+      "big.txt",
+      "x"
+        .repeat(80)
+        .concat("\n")
+        .repeat(MAX_PATCH_BYTES / 80),
+    );
+    await repo.write("small.ts", "two\n");
+
+    expect(summary((await review()).changes)).toEqual([
+      { status: "modified", path: "big.txt", skipped: "too large" },
+      { status: "modified", path: "small.ts" },
     ]);
   });
 

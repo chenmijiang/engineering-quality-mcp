@@ -65,7 +65,7 @@ Results include a `status` of `completed`, `needs_input`, `error`, or `closed`. 
 | `commit`        | The commit against its first parent; a root commit against the empty tree.                                       |
 | `from` (+ `to`) | The merge base of `from` and `to`, up to `to` (default `HEAD`). Working tree changes are not included.           |
 
-`commit` cannot be combined with `from`/`to`, and `to` requires `from`. Refs are pinned to commit SHAs first. Unknown refs, a broken HEAD, unresolved merge conflicts, parents missing from a shallow clone, and unrelated histories are errors. `paths` limits the review to repository-relative files or directories, matched literally. More than 100 reviewable changed files are rejected; narrow the target.
+`commit` cannot be combined with `from`/`to`, and `to` requires `from`. Refs are pinned to commit SHAs first. Unknown refs, a broken HEAD, unresolved merge conflicts, parents missing from a shallow clone, and unrelated histories are errors. `paths` limits the review to repository-relative files or directories, matched literally. More than 100 changed files, not counting excluded directories, symlinks, and submodules, are rejected; narrow the target. Binary and oversized files count toward this limit because they are identified while capturing patches.
 
 Files under `.git`, `.idea`, `.svn`, `.vscode`, `node_modules`, `target`, or `vendor` directories, binary files, patches over 512 KiB, symlinks, and submodules are listed as not reviewable. With no changes or no reviewable files, the tool returns `completed` without a session. `instructions` can provide additional reviewer guidance.
 
