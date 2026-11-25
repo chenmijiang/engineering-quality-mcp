@@ -32,9 +32,14 @@ export function git(
     bytes: Buffer;
     exitCode: number;
   }>();
+  // Inherited GIT_* variables (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_CONFIG_PARAMETERS, ...)
+  // could redirect git away from `repo` or reconfigure it.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+  );
   const child = spawn("git", [...GIT_CONFIG, ...args], {
     cwd: repo,
-    env: { ...process.env, ...GIT_ENV },
+    env: { ...env, ...GIT_ENV },
     stdio: ["ignore", "pipe", "pipe"],
     signal,
   });

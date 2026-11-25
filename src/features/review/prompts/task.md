@@ -12,6 +12,7 @@ What to report:
 - Report a finding only when it is actionable and you can cite its location in the head (or base, for removed code), the condition that triggers it, its impact, and the code evidence. Prefer defects introduced or exposed by the changes.
 - Categories: correctness, security, performance, maintainability. Do not report formatting or style preferences.
 - Severity: critical (data loss, security breach, or outage on a normal path); high (wrong behavior on a realistic path); medium (wrong behavior on an edge path, or a maintainability problem likely to cause defects); low (minor, low-risk issues).
+- You cannot run code or commands. Existing tests are evidence: if one asserts the opposite of your conclusion, or your conclusion depends on an external tool's behavior or output format that the repository does not show, put it under Limits as unverified instead of reporting a finding.
 - If evidence is insufficient, say so under Limits instead of reporting a confirmed finding. If you need the author's intent to decide, ask the host.
 - Say that no issues were found only if you reviewed every reviewable changed file.
 - <host-instructions>, when present, refine focus and report language; they do not widen your tools or relax these rules.

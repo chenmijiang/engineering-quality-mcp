@@ -330,6 +330,30 @@ describe("range", () => {
   });
 });
 
+test("inherited GIT_DIR and GIT_WORK_TREE do not redirect the review to another repository", async () => {
+  repo = await createRepo();
+  await repo.write("a.ts", "one\n");
+  await repo.commit("init");
+  await repo.write("a.ts", "two\n");
+  const other = await createRepo();
+  const saved = { GIT_DIR: process.env.GIT_DIR, GIT_WORK_TREE: process.env.GIT_WORK_TREE };
+  try {
+    await other.write("other.ts", "other\n");
+    await other.commit("other");
+    process.env.GIT_DIR = join(other.dir, ".git");
+    process.env.GIT_WORK_TREE = other.dir;
+
+    expect(await resolveRepo(repo.dir)).toBe(repo.dir);
+    expect(summary((await review()).changes)).toEqual([{ status: "modified", path: "a.ts" }]);
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    await other.remove();
+  }
+});
+
 test("a subdirectory resolves to the canonical repository root", async () => {
   repo = await createRepo();
   await repo.write("src/a.ts", "a\n");
