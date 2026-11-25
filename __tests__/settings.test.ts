@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { loadConfig } from "@/config";
 import { createReadOnlySettings } from "@/runtimes/pi/settings";
@@ -90,12 +90,24 @@ test.each([{ QA_PROVIDER: "fake" }, { QA_MODEL: "test-model" }])(
   },
 );
 
-test.each(["QA_RUN_TIMEOUT_MS", "QA_IDLE_TIMEOUT_MS", "QA_MAX_SESSIONS"])(
-  "%s must be a positive integer",
-  (name) => {
-    expect(() => loadConfig({ [name]: "0" })).toThrow(`${name} must be a positive integer`);
-  },
-);
+describe.each([
+  ["QA_RUN_TIMEOUT_MS", "runTimeoutMs"],
+  ["QA_IDLE_TIMEOUT_MS", "idleTimeoutMs"],
+  ["QA_MAX_SESSIONS", "maxSessions"],
+] as const)("%s", (name, field) => {
+  test.each(["", "0", "-1", "1.5", "not-a-number", "Infinity", "2147483648"])(
+    "rejects invalid positive integer %j",
+    (value) => {
+      expect(() => loadConfig({ [name]: value })).toThrow(
+        `${name} must be a positive integer <= 2147483647`,
+      );
+    },
+  );
+
+  test.each(["1", "2147483647"])("accepts boundary value %s", (value) => {
+    expect(loadConfig({ [name]: value })[field]).toBe(Number(value));
+  });
+});
 
 test("missing settings use SDK defaults without creating directories or lock files", async () => {
   const missingAgentDir = join(root, "missing-agent");

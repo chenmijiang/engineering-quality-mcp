@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Client } from "@modelcontextprotocol/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -155,15 +156,27 @@ describe.each([
     const sessionDir = join(fake.agentDir, "sessions");
     const file = (await readdir(sessionDir)).find((name) => name.endsWith(`_${session_id}.jsonl`));
     expect(file).toBeDefined();
-    const entries = (await readFile(join(sessionDir, file ?? ""), "utf8"))
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line) as Record<string, unknown>);
-    expect(entries[0]).toMatchObject({ type: "session", id: session_id });
-    const text = JSON.stringify(entries);
-    expect(text).toContain('"ASK"');
-    expect(text).toContain("CODE-7");
-    expect(entries.at(-1)).toMatchObject({
+    const transcript = SessionManager.open(join(sessionDir, file!));
+    expect(transcript.getSessionId()).toBe(session_id);
+    const messages = transcript.buildSessionContext().messages;
+    expect(messages).toContainEqual(
+      expect.objectContaining({ role: "user", content: [{ type: "text", text: "ASK" }] }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        role: "toolResult",
+        toolName: "ask_host",
+        content: [{ type: "text", text: "CODE-7" }],
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        role: "assistant",
+        content: expect.arrayContaining([{ type: "text", text: "CODE:CODE-7" }]),
+      }),
+    );
+    // qa_close is our documented diagnostic contract, not an SDK-owned event layout.
+    expect(transcript.getEntries().at(-1)).toMatchObject({
       type: "custom",
       customType: "qa_close",
       data: { reason: "Session closed by host" },
