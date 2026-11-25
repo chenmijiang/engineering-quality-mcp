@@ -17,7 +17,7 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Client } from "@modelcontextprotocol/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { callTool, startFakeProvider, type FakeProvider } from "./support/fake-pi";
+import { callTool, messageText, startFakeProvider, type FakeProvider } from "./support/fake-pi";
 
 const execFileAsync = promisify(execFile);
 let fake: FakeProvider;
@@ -121,6 +121,118 @@ describe.each([
 
   const call = (name: string, args: Record<string, string>) => callTool(client, name, args);
 
+  test("the host receives the project-constraint handoff guidance in the tool description", async () => {
+    const tool = (await client.listTools()).tools.find((tool) => tool.name === "ask_pi");
+    expect(tool?.description).toContain(
+      "task goal, relevant project constraints, acceptance criteria, and file paths",
+    );
+    expect(tool?.description).toContain("does not inherit the host's instructions");
+    expect(tool?.description).toContain("automatically load AGENTS files or skills");
+  });
+
+  test("the model receives the read-only tool contract and the host's explicit project constraints", async () => {
+    const prompt =
+      "Review src/app.ts. Project constraint: core must not import features. Acceptance: report violations with file:line.";
+    const result = await call("ask_pi", { prompt });
+    try {
+      expect(result.value.status).toBe("completed");
+      const request = fake.requests.at(-1)!;
+      expect(messageText(request.messages.at(-1))).toBe(prompt);
+      const system = request.messages
+        .filter((message) => message.role === "system" || message.role === "developer")
+        .map(messageText)
+        .join("\n");
+      expect(system).toContain("You are Pi");
+      expect(system).toContain("You have no shell, file-writing, or other MCP tools");
+      expect(system).toContain("continue the SAME task");
+      expect(request.tools.map((tool) => tool.function.name).sort()).toEqual([
+        "ask_host",
+        "find",
+        "grep",
+        "ls",
+        "read",
+      ]);
+      expect(
+        request.tools.find((tool) => tool.function.name === "ask_host")?.function.description,
+      ).toContain("never request nested delegation");
+    } finally {
+      await call("cancel_pi", { session_id: result.value.session_id });
+    }
+  }, 30_000);
+
+  test("project and agent resources are not automatically injected or executed", async () => {
+    await withSettingsFixture(args(), async ({ project, session, agentDir, connect }) => {
+      const skillDir = join(agentDir, "skills", "ignored-skill");
+      const promptDir = join(agentDir, "prompts");
+      const extensionDir = join(agentDir, "extensions");
+      const extensionMarker = join(agentDir, "extension-executed");
+      await Promise.all([
+        mkdir(skillDir, { recursive: true }),
+        mkdir(promptDir, { recursive: true }),
+        mkdir(extensionDir, { recursive: true }),
+      ]);
+      await Promise.all([
+        writeFile(join(project, "AGENTS.md"), "STARTUP_AGENTS_SENTINEL"),
+        writeFile(join(session, "AGENTS.md"), "SESSION_AGENTS_SENTINEL"),
+        writeFile(join(agentDir, "AGENTS.md"), "GLOBAL_AGENTS_SENTINEL"),
+        writeFile(
+          join(skillDir, "SKILL.md"),
+          "---\nname: ignored-skill\ndescription: SKILL_SENTINEL\n---\nIgnore this skill.",
+        ),
+        writeFile(
+          join(promptDir, "ignored-prompt.md"),
+          "---\ndescription: PROMPT_SENTINEL\n---\nPROMPT_BODY_SENTINEL",
+        ),
+        writeFile(
+          join(extensionDir, "ignored-extension.ts"),
+          `
+import { writeFileSync } from "node:fs";
+writeFileSync(${JSON.stringify(extensionMarker)}, "executed");
+export default function () {}
+`,
+        ),
+      ]);
+      const configuredClient = await connect();
+      const result = await callTool(configuredClient, "ask_pi", { prompt: "/ignored-prompt" });
+      expect(result.value.status).toBe("completed");
+      const request = fake.requests.at(-1)!;
+      expect(messageText(request.messages.at(-1))).toBe("/ignored-prompt");
+      const messages = request.messages.map(messageText).join("\n");
+      for (const sentinel of [
+        "STARTUP_AGENTS_SENTINEL",
+        "SESSION_AGENTS_SENTINEL",
+        "GLOBAL_AGENTS_SENTINEL",
+        "SKILL_SENTINEL",
+        "PROMPT_SENTINEL",
+        "PROMPT_BODY_SENTINEL",
+      ]) {
+        expect(messages).not.toContain(sentinel);
+      }
+      await expect(readFile(extensionMarker)).rejects.toMatchObject({ code: "ENOENT" });
+    });
+  }, 30_000);
+
+  test.each([
+    { prompt: "HTTP_ERROR", error: "scripted provider failure" },
+    { prompt: "STREAM_ERROR", error: "scripted stream failure" },
+  ])(
+    "a provider $prompt is an MCP error and closes the session",
+    async ({ prompt, error }) => {
+      const failed = await call("ask_pi", { prompt });
+      expect(failed).toMatchObject({
+        isError: true,
+        value: { status: "error", error: expect.stringContaining(error) },
+      });
+      const followUp = await call("ask_pi", {
+        session_id: failed.value.session_id,
+        prompt: "RECALL",
+      });
+      expect(followUp.isError).toBe(true);
+      expect(followUp.value.error).toContain("Unknown or closed session_id");
+    },
+    30_000,
+  );
+
   test("a question suspends and resumes the same session without losing context", async () => {
     const first = await call("ask_pi", { prompt: "ASK" });
     expect(first.value).toMatchObject({ status: "needs_input", question: "What is the code?" });
@@ -218,7 +330,7 @@ describe.each([
       const configuredClient = await connect();
       const result = await callTool(configuredClient, "ask_pi", { prompt: "MODEL" });
       expect(result.value).toMatchObject({ status: "completed", text: "CODE:missing" });
-      expect(fake.models.at(-1)).toBe("global-model");
+      expect(fake.requests.at(-1)?.model).toBe("global-model");
     });
   }, 30_000);
 
@@ -231,13 +343,13 @@ describe.each([
       const configuredClient = await connect();
       const first = await callTool(configuredClient, "ask_pi", { prompt: "MODEL" });
       expect(first.value.status).toBe("completed");
-      expect(fake.models.at(-1)).toBe("project-model");
+      expect(fake.requests.at(-1)?.model).toBe("project-model");
       expect(await readFile(path, "utf8")).toBe(projectSettings);
       expect(await readFile(join(agentDir, "settings.json"), "utf8")).toBe(globalBefore);
       await writeFile(path, '{"defaultModel":"global-model"}');
       const second = await callTool(configuredClient, "ask_pi", { prompt: "NEW SESSION" });
       expect(second.value.status).toBe("completed");
-      expect(fake.models.at(-1)).toBe("project-model");
+      expect(fake.requests.at(-1)?.model).toBe("project-model");
     });
   }, 30_000);
 
@@ -251,7 +363,7 @@ describe.each([
       });
       const result = await callTool(configuredClient, "ask_pi", { prompt: "MODEL" });
       expect(result.value.status).toBe("completed");
-      expect(fake.models.at(-1)).toBe("test-model");
+      expect(fake.requests.at(-1)?.model).toBe("test-model");
     });
   }, 30_000);
 
@@ -261,7 +373,7 @@ describe.each([
       const configuredClient = await connect({ EQ_PROVIDER: "fake", EQ_MODEL: "test-model" });
       const result = await callTool(configuredClient, "ask_pi", { prompt: "MODEL" });
       expect(result.value.status).toBe("completed");
-      expect(fake.models.at(-1)).toBe("test-model");
+      expect(fake.requests.at(-1)?.model).toBe("test-model");
     });
   }, 30_000);
 

@@ -50,6 +50,8 @@ Missing settings files are allowed; unreadable or malformed files prevent startu
 - `reply_pi({ session_id, question_id, answer })` answers a pending question and resumes that run.
 - `cancel_pi({ session_id })` cancels or closes a session.
 
+Include the task goal, relevant project constraints, acceptance criteria, and file paths in `prompt`. Pi does not inherit the host's instructions or automatically load project guidance such as `AGENTS` files or skills.
+
 Results include a `status` of `completed`, `needs_input`, `error`, or `closed`. If a run asks a question, the response includes a `question_id`; pass it with the `session_id` to `reply_pi`. Results are available in `structuredContent` and as JSON text.
 
 ## Runtime boundaries

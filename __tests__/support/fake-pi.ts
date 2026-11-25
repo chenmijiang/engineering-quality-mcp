@@ -12,6 +12,12 @@ export type WireMessage = {
   content?: string | { type: string; text?: string }[] | null;
 };
 
+type WireRequest = {
+  model: string;
+  messages: WireMessage[];
+  tools: { type: string; function: { name: string; description: string } }[];
+};
+
 export type ToolResult = {
   status: string;
   session_id: string;
@@ -64,8 +70,8 @@ function reply(messages: WireMessage[]) {
 export type FakeProvider = {
   /** Pi agent dir configured for the fake provider; also the server's cwd and HOME. */
   agentDir: string;
-  /** Model ids observed on the provider wire, in request order. */
-  models: string[];
+  /** Model requests observed on the provider wire, in request order. */
+  requests: WireRequest[];
   connect(
     args: string[],
     options?: { cwd?: string; env?: Record<string, string | undefined> },
@@ -76,14 +82,32 @@ export type FakeProvider = {
 /** Starts the scripted OpenAI-compatible provider and writes a Pi agent dir that points at it. */
 export async function startFakeProvider(): Promise<FakeProvider> {
   const agentDir = await mkdtemp(join(tmpdir(), "engineering-quality-mcp-pi-"));
-  const models: string[] = [];
+  const requests: WireRequest[] = [];
   const server = createServer((request, response) => {
     let body = "";
     request.on("data", (data: Buffer) => (body += data.toString()));
     request.on("end", () => {
-      const { messages, model } = JSON.parse(body) as { messages: WireMessage[]; model: string };
-      models.push(model);
+      const payload = JSON.parse(body) as WireRequest;
+      requests.push(payload);
+      const { messages } = payload;
+      const prompt = messageText(messages.at(-1));
+      if (prompt === "HTTP_ERROR") {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            error: { message: "scripted provider failure", type: "invalid_request_error" },
+          }),
+        );
+        return;
+      }
       response.writeHead(200, { "content-type": "text/event-stream" });
+      if (prompt === "STREAM_ERROR") {
+        response.end(
+          chunk({ role: "assistant", content: "INCOMPLETE" }, null) +
+            `data: ${JSON.stringify({ error: { message: "scripted stream failure", type: "server_error" } })}\n\n`,
+        );
+        return;
+      }
       response.end(`${reply(messages)}data: [DONE]\n\n`);
     });
   });
@@ -101,7 +125,7 @@ export async function startFakeProvider(): Promise<FakeProvider> {
 
   return {
     agentDir,
-    models,
+    requests,
     async connect(args: string[], options: Parameters<FakeProvider["connect"]>[1] = {}) {
       const client = new Client({ name: "generic-client", version: "1.0.0" });
       await client.connect(

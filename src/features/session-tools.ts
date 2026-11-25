@@ -24,7 +24,7 @@ export class SessionTools extends ToolModule {
   @tool({
     name: "ask_pi",
     description:
-      "Ask Pi a task, or continue a completed Pi conversation by session_id. Pi can inspect files with read, grep, find and ls, and may ask you a clarification; it has no shell or file-writing tools. Returns needs_input with IDs when Pi needs an answer; reply via reply_pi, never another ask_pi on that session.",
+      "Ask Pi a task, or continue a completed Pi conversation by session_id. Include the task goal, relevant project constraints, acceptance criteria, and file paths in prompt: Pi does not inherit the host's instructions or automatically load AGENTS files or skills. Pi can inspect files with read, grep, find and ls, and may ask you a clarification; it has no shell or file-writing tools. Returns needs_input with IDs when Pi needs an answer; reply via reply_pi, never another ask_pi on that session.",
     inputSchema: askInput,
   })
   ask({ prompt, session_id }: z.output<typeof askInput>, ctx: ServerContext) {
