@@ -1,9 +1,10 @@
-import { resolve } from "node:path";
-
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 
 export type Config = {
   cwd: string;
+  /** Process startup directory; independent of the default session cwd. */
+  projectCwd: string;
   agentDir: string;
   model?: { provider: string; id: string };
   runTimeoutMs: number;
@@ -20,14 +21,16 @@ function positiveInteger(env: NodeJS.ProcessEnv, name: string, fallback: number)
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const { PI_PROVIDER: provider, PI_MODEL: id } = env;
-  if (!provider !== !id) throw new Error("Set PI_PROVIDER and PI_MODEL together, or omit both");
+  const { QA_PROVIDER: provider, QA_MODEL: id } = env;
+  if (!provider !== !id) throw new Error("Set QA_PROVIDER and QA_MODEL together, or omit both");
+  const projectCwd = process.cwd();
   return {
-    cwd: resolve(env.PI_CWD ?? process.cwd()),
-    agentDir: resolve(env.PI_AGENT_DIR ?? getAgentDir()),
+    cwd: resolve(env.QA_CWD ?? projectCwd),
+    projectCwd,
+    agentDir: resolve(env.QA_AGENT_DIR ?? join(env.HOME ?? homedir(), ".qa", "agent")),
     model: provider && id ? { provider, id } : undefined,
-    runTimeoutMs: positiveInteger(env, "PI_RUN_TIMEOUT_MS", 300_000),
-    idleTimeoutMs: positiveInteger(env, "PI_IDLE_TIMEOUT_MS", 1_800_000),
-    maxSessions: positiveInteger(env, "PI_MAX_SESSIONS", 8),
+    runTimeoutMs: positiveInteger(env, "QA_RUN_TIMEOUT_MS", 300_000),
+    idleTimeoutMs: positiveInteger(env, "QA_IDLE_TIMEOUT_MS", 1_800_000),
+    maxSessions: positiveInteger(env, "QA_MAX_SESSIONS", 8),
   };
 }

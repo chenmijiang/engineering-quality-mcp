@@ -15,6 +15,10 @@ This repository implements a stdio MCP server backed by Pi. Use `README.md` for 
 - Keep prompts beside the code that consumes them. Maintain the distinction between host-facing tool descriptions and Pi-facing review instructions or quality criteria.
 - When changing a prompt, check its reader and how it is assembled before editing; the prompt is part of runtime behavior, not general documentation.
 
+## Documentation
+
+- Keep `README.md` focused on current behavior, configuration, usage, and operating requirements. Do not add implementation narratives or change history; put task history and verification in the delivery or an explicitly requested changelog.
+
 ## Validation
 
 Inspect `package.json` for the current validation scripts. Run the relevant tests and checks for the changed behavior; include the build when changes affect runtime loading, imports, or packaging. Follow the existing test patterns under `__tests__/`.

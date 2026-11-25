@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import { Client } from "@modelcontextprotocol/client";
@@ -11,11 +11,13 @@ import { expect, test } from "vitest";
 const execFileAsync = promisify(execFile);
 
 async function expectServerToInitializeAndPing(command: string, args: string[]) {
+  const workspace = await mkdtemp(join(tmpdir(), "qa-stdio-smoke-"));
   const client = new Client({ name: "test-client", version: "1.0.0" });
   const transport = new StdioClientTransport({
     command,
     args,
-    cwd: process.cwd(),
+    cwd: workspace,
+    env: { PATH: process.env.PATH ?? "", HOME: workspace },
   });
 
   try {
@@ -24,11 +26,12 @@ async function expectServerToInitializeAndPing(command: string, args: string[]) 
     await expect(client.ping()).resolves.toEqual({});
   } finally {
     await client.close();
+    await rm(workspace, { recursive: true, force: true });
   }
 }
 
 test("a client can initialize and ping the stdio server from source", async () => {
-  await expectServerToInitializeAndPing("bun", ["src/index.ts"]);
+  await expectServerToInitializeAndPing("bun", [resolve("src/index.ts")]);
 });
 
 test("a client can initialize and ping the built stdio server", async () => {

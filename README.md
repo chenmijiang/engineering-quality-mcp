@@ -18,7 +18,30 @@ Bun `>= 1.4.5` is required. Configure an MCP client to run the source entry:
 }
 ```
 
-`bun run build` creates `dist/index.js`; start the built entry with `bun dist/index.js`. The Pi SDK uses the existing Pi model and auth configuration; see `src/config.ts` for supported environment variables.
+`bun run build` creates `dist/index.js`; start the built entry with `bun dist/index.js`.
+
+## Configuration
+
+The server has its own Pi-compatible configuration directory. By default, it reads:
+
+- `~/.qa/agent/settings.json`: global settings.
+- `<server-startup-directory>/.qa/settings.json`: project settings, merged over global settings.
+- `~/.qa/agent/models.json` and `auth.json`: model definitions and credentials.
+
+Set `QA_AGENT_DIR` to use another agent directory for the global settings, models and credentials. These files do not fall back to `~/.pi/agent`; project settings do not fall back to `.pi/settings.json`. Pi's provider API-key environment variables can still be used. To use the Pi CLI to configure credentials in the same directory, set its `PI_CODING_AGENT_DIR` to that directory before starting Pi.
+
+The startup directory is the working directory of the MCP server process, as set by the client. Settings are loaded once at startup; restart the server after changes. `QA_CWD` changes the default working directory for agent sessions, not where project settings are loaded. Likewise, `check_test.project_dir` does not change the settings source.
+
+Missing settings files are allowed; unreadable or malformed files prevent startup. Settings are read as snapshots without a file lock or a cross-file transaction. Avoid editing them while the server is starting; writers should replace each file atomically rather than modify it in place.
+
+| Environment variable      | Default                  | Purpose                                            |
+| ------------------------- | ------------------------ | -------------------------------------------------- |
+| `QA_AGENT_DIR`            | `~/.qa/agent`            | Global settings, models and credentials directory. |
+| `QA_CWD`                  | Server startup directory | Default agent session working directory.           |
+| `QA_PROVIDER`, `QA_MODEL` | Unset                    | Explicit model; set both or neither.               |
+| `QA_RUN_TIMEOUT_MS`       | `300000`                 | Whole-turn deadline, including reply wait.         |
+| `QA_IDLE_TIMEOUT_MS`      | `1800000`                | Idle session retention.                            |
+| `QA_MAX_SESSIONS`         | `8`                      | Maximum number of sessions.                        |
 
 ## Tools
 

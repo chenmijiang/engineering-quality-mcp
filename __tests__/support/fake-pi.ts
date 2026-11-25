@@ -72,7 +72,12 @@ export type FakeProvider = {
   agentDir: string;
   /** Message lists of every model request received, in order. */
   requests: WireMessage[][];
-  connect(args: string[]): Promise<Client>;
+  /** Model ids observed on the provider wire, in request order. */
+  models: string[];
+  connect(
+    args: string[],
+    options?: { cwd?: string; env?: Record<string, string | undefined> },
+  ): Promise<Client>;
   close(): Promise<void>;
 };
 
@@ -80,11 +85,13 @@ export type FakeProvider = {
 export async function startFakeProvider(): Promise<FakeProvider> {
   const agentDir = await mkdtemp(join(tmpdir(), "quality-analysis-mcp-pi-"));
   const requests: WireMessage[][] = [];
+  const models: string[] = [];
   const server = createServer((request, response) => {
     let body = "";
     request.on("data", (data: Buffer) => (body += data.toString()));
     request.on("end", () => {
-      const { messages } = JSON.parse(body) as { messages: WireMessage[] };
+      const { messages, model } = JSON.parse(body) as { messages: WireMessage[]; model: string };
+      models.push(model);
       requests.push(messages);
       response.writeHead(200, { "content-type": "text/event-stream" });
       response.end(`${reply(messages)}data: [DONE]\n\n`);
@@ -98,28 +105,32 @@ export async function startFakeProvider(): Promise<FakeProvider> {
     api: "openai-completions",
     apiKey: "test",
     baseUrl: `http://127.0.0.1:${port}/v1`,
-    models: [{ id: "test-model" }],
+    models: [{ id: "test-model" }, { id: "global-model" }, { id: "project-model" }],
   };
   await writeFile(join(agentDir, "models.json"), JSON.stringify({ providers: { fake: provider } }));
 
   return {
     agentDir,
     requests,
-    async connect(args: string[]) {
+    models,
+    async connect(args: string[], options: Parameters<FakeProvider["connect"]>[1] = {}) {
       const client = new Client({ name: "generic-client", version: "1.0.0" });
       await client.connect(
         new StdioClientTransport({
           command: "bun",
           args,
-          cwd: agentDir,
-          env: {
-            PATH: process.env.PATH ?? "",
-            HOME: agentDir,
-            PI_AGENT_DIR: agentDir,
-            PI_PROVIDER: "fake",
-            PI_MODEL: "test-model",
-            PI_RUN_TIMEOUT_MS: "30000",
-          },
+          cwd: options.cwd ?? agentDir,
+          env: Object.fromEntries(
+            Object.entries({
+              PATH: process.env.PATH ?? "",
+              HOME: agentDir,
+              QA_AGENT_DIR: agentDir,
+              QA_PROVIDER: "fake",
+              QA_MODEL: "test-model",
+              QA_RUN_TIMEOUT_MS: "30000",
+              ...options.env,
+            }).filter((entry): entry is [string, string] => entry[1] !== undefined),
+          ),
           stderr: "inherit",
         }),
       );

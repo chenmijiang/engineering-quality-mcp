@@ -14,11 +14,12 @@ import { Type } from "typebox";
 
 import type { AgentRuntime, AgentSession, HostChannel, OpenSessionOptions } from "@/core/contracts";
 
+import { createReadOnlySettings } from "./settings";
 import systemPrompt from "./system.md" with { type: "text" };
 
 export interface PiRuntimeOptions {
-  /** Directory whose Pi settings seed every session. */
-  cwd: string;
+  /** Process startup directory whose .qa settings seed every session. */
+  projectCwd: string;
   agentDir: string;
   model?: { provider: string; id: string };
 }
@@ -91,13 +92,12 @@ class PiSession implements AgentSession {
 
 /** Pi SDK backend: read-only file tools plus `ask_host`, with no resource discovery or persistence. */
 export class PiRuntime implements AgentRuntime {
-  // The SDK does not export its `Settings` type.
+  // Infer the settings type from the public SDK API.
   readonly #baseSettings: ReturnType<SettingsManager["getSettings"]>;
   #modelRuntime: Promise<ModelRuntime> | undefined;
 
   constructor(private readonly options: PiRuntimeOptions) {
-    // Copy existing settings into a non-persisting manager: SDK changes cannot rewrite settings.
-    this.#baseSettings = SettingsManager.create(options.cwd, options.agentDir).getSettings();
+    this.#baseSettings = createReadOnlySettings(options.projectCwd, options.agentDir).getSettings();
   }
 
   async open({ cwd, host }: OpenSessionOptions): Promise<AgentSession> {

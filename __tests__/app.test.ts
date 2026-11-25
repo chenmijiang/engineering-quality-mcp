@@ -13,6 +13,7 @@ import type { ToolResult } from "./support/fake-pi";
 
 const config = {
   cwd: tmpdir(),
+  projectCwd: tmpdir(),
   agentDir: tmpdir(),
   runTimeoutMs: 10_000,
   idleTimeoutMs: 60_000,
