@@ -61,10 +61,10 @@ afterEach(async () => {
   client = app = undefined;
 });
 
-test("the server exposes only session tools", async () => {
+test("the server exposes the session tools and review_code", async () => {
   const mcp = await connect({ runtime: fakeRuntime().runtime });
   const names = (await mcp.listTools()).tools.map((tool) => tool.name);
-  expect(names.sort()).toEqual(["ask_pi", "cancel_pi", "reply_pi"]);
+  expect(names.sort()).toEqual(["ask_pi", "cancel_pi", "reply_pi", "review_code"]);
 });
 
 test("the session protocol suspends and resumes a turn on any agent runtime", async () => {

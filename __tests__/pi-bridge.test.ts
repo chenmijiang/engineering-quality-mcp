@@ -18,6 +18,7 @@ import type { Client } from "@modelcontextprotocol/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { callTool, messageText, startFakeProvider, type FakeProvider } from "./support/fake-pi";
+import { createRepo } from "./support/git-repo";
 
 const execFileAsync = promisify(execFile);
 let fake: FakeProvider;
@@ -157,6 +158,35 @@ describe.each([
       ).toContain("never request nested delegation");
     } finally {
       await call("cancel_pi", { session_id: result.value.session_id });
+    }
+  }, 30_000);
+
+  test("review_code gives Pi working revision tools for the pinned commit", async () => {
+    const repo = await createRepo();
+    try {
+      await repo.write("review.ts", "export const reviewed = true;\n");
+      await repo.commit("reviewed");
+      await repo.write("review.ts", "export const reviewed = 'work tree';\n");
+
+      const result = await callTool(client, "review_code", { repo: repo.dir, commit: "HEAD" });
+
+      expect(result.value.status).toBe("completed");
+      expect(result.value.text).toContain("1\texport const reviewed = true;");
+      const request = fake.requests.at(-1)!;
+      expect(request.tools.map((tool) => tool.function.name).sort()).toEqual([
+        "ask_host",
+        "find",
+        "grep",
+        "grep_at",
+        "list_files_at",
+        "ls",
+        "read",
+        "read_diff",
+        "read_file_at",
+      ]);
+      await callTool(client, "cancel_pi", { session_id: result.value.session_id });
+    } finally {
+      await repo.remove();
     }
   }, 30_000);
 

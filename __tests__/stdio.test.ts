@@ -31,6 +31,7 @@ async function expectServerToInitializeAndPing(command: string, args: string[]) 
       "ask_pi",
       "cancel_pi",
       "reply_pi",
+      "review_code",
     ]);
   } finally {
     await client.close();

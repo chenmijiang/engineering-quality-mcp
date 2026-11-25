@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import type { AgentRuntime, SessionBroker } from "@/core/contracts";
 import { InMemorySessionBroker } from "@/core/session-broker";
 import type { ToolModule } from "@/core/tool-module";
+import { ReviewTool } from "@/features/review/review-tool";
 import { SessionTools } from "@/features/session-tools";
 import { PiRuntime } from "@/runtimes/pi/pi-runtime";
 
@@ -23,7 +24,7 @@ export class App {
   constructor(config: Config, overrides: AppOverrides = {}) {
     this.#runtime = overrides.runtime ?? new PiRuntime(config);
     this.#sessions = new InMemorySessionBroker(this.#runtime, config);
-    this.#tools = [new SessionTools(this.#sessions)];
+    this.#tools = [new SessionTools(this.#sessions), new ReviewTool(this.#sessions)];
   }
 
   /** Creates the MCP server for one connection; all connections share the app's sessions. */

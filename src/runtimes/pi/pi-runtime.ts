@@ -10,9 +10,15 @@ import {
   type ResourceLoader,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import { Type, type TSchema } from "typebox";
 
-import type { AgentRuntime, AgentSession, HostChannel, OpenSessionOptions } from "@/core/contracts";
+import type {
+  AgentRuntime,
+  AgentSession,
+  AgentTool,
+  HostChannel,
+  OpenSessionOptions,
+} from "@/core/contracts";
 
 import { createReadOnlySettings } from "./settings";
 import systemPrompt from "./system.md" with { type: "text" };
@@ -55,6 +61,23 @@ function askHostTool(host: HostChannel): ToolDefinition<typeof questionSchema> {
     async execute(_id, { question }, signal) {
       const answer = await host.ask(question, signal);
       return { content: [{ type: "text", text: answer }], details: {} };
+    },
+  };
+}
+
+const BUILTIN_TOOLS = ["ask_host", "read", "grep", "find", "ls"];
+
+function piTool(tool: AgentTool): ToolDefinition {
+  if (BUILTIN_TOOLS.includes(tool.name)) {
+    throw new Error(`Agent tool name collides with a built-in tool: ${tool.name}`);
+  }
+  return {
+    name: tool.name,
+    label: tool.name,
+    description: tool.description,
+    parameters: Type.Unsafe<unknown>(tool.parameters as TSchema),
+    async execute(_id, args, signal) {
+      return { content: [{ type: "text", text: await tool.execute(args, signal) }], details: {} };
     },
   };
 }
@@ -109,7 +132,8 @@ export class PiRuntime implements AgentRuntime {
     this.#baseSettings = createReadOnlySettings(options.projectCwd, options.agentDir).getSettings();
   }
 
-  async open({ id, cwd, host }: OpenSessionOptions): Promise<AgentSession> {
+  async open({ id, cwd, host, tools = [] }: OpenSessionOptions): Promise<AgentSession> {
+    const extraTools = tools.map(piTool);
     const modelRuntime = await this.#getModelRuntime();
     const { model: wanted, agentDir, sessionDir } = this.options;
     const model = wanted ? modelRuntime.getModel(wanted.provider, wanted.id) : undefined;
@@ -121,8 +145,8 @@ export class PiRuntime implements AgentRuntime {
       modelRuntime,
       model,
       resourceLoader,
-      tools: ["ask_host", "read", "grep", "find", "ls"],
-      customTools: [askHostTool(host)],
+      tools: [...BUILTIN_TOOLS, ...extraTools.map((tool) => tool.name)],
+      customTools: [askHostTool(host), ...extraTools],
       sessionManager: SessionManager.create(cwd, sessionDir, { id }),
       settingsManager: SettingsManager.inMemory({
         ...base,

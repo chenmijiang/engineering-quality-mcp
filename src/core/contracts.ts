@@ -13,6 +13,17 @@ export interface AgentSession {
   dispose(reason?: string): void;
 }
 
+/** A task-specific tool a feature gives the agent in addition to the runtime's built-in tools. */
+export interface AgentTool {
+  /** Must not collide with the runtime's built-in tool names. */
+  name: string;
+  description: string;
+  /** JSON Schema of the arguments object. Runtimes may validate against it; `execute` must not rely on that. */
+  parameters: Record<string, unknown>;
+  /** Returns the text shown to the agent; a thrown error is reported to the agent as a tool error. */
+  execute(args: unknown, signal?: AbortSignal): Promise<string>;
+}
+
 export interface OpenSessionOptions {
   /** Host-facing session id; runtimes that keep transcripts use it to identify them. */
   id: string;
@@ -20,6 +31,7 @@ export interface OpenSessionOptions {
   cwd: string;
   /** Channel the agent uses for clarification questions during a turn. */
   host: HostChannel;
+  tools?: AgentTool[];
 }
 
 /** Agent backend: creates sessions and owns their shared resources. */
@@ -44,6 +56,8 @@ export interface AskRequest {
   sessionId?: string;
   /** Workspace for a new session; defaults to the configured cwd. Ignored when continuing. */
   cwd?: string;
+  /** Extra agent tools for a new session; they stay with it for follow-ups. Ignored when continuing. */
+  tools?: AgentTool[];
 }
 
 /** Host-facing session protocol: turns, suspended questions, cancellation. */

@@ -1,6 +1,7 @@
 import type {
   AgentRuntime,
   AgentSession,
+  AgentTool,
   AskRequest,
   HostChannel,
   Result,
@@ -38,7 +39,10 @@ class Conversation implements HostChannel {
   closed = false;
   touched = Date.now();
 
-  constructor(readonly cwd: string) {}
+  constructor(
+    readonly cwd: string,
+    readonly tools: AgentTool[] | undefined,
+  ) {}
 
   publish(result: Result) {
     this.touched = Date.now();
@@ -111,7 +115,7 @@ export class InMemorySessionBroker implements SessionBroker {
     this.#sweeper.unref();
   }
 
-  async ask({ prompt, sessionId, cwd }: AskRequest, signal: AbortSignal): Promise<Result> {
+  async ask({ prompt, sessionId, cwd, tools }: AskRequest, signal: AbortSignal): Promise<Result> {
     if (this.#shuttingDown) return fail("Server is shutting down");
     let record: Conversation;
     if (sessionId) {
@@ -130,7 +134,7 @@ export class InMemorySessionBroker implements SessionBroker {
       if (this.#sessions.size >= this.limits.maxSessions) {
         return fail("Session limit reached; cancel_pi an existing session first");
       }
-      record = new Conversation(cwd ?? this.limits.cwd);
+      record = new Conversation(cwd ?? this.limits.cwd, tools);
       this.#sessions.set(record.id, record);
     }
     const turn = this.#startTurn(record);
@@ -189,7 +193,12 @@ export class InMemorySessionBroker implements SessionBroker {
   async #run(record: Conversation, prompt: string) {
     try {
       if (!record.session) {
-        const session = await this.runtime.open({ id: record.id, cwd: record.cwd, host: record });
+        const session = await this.runtime.open({
+          id: record.id,
+          cwd: record.cwd,
+          host: record,
+          tools: record.tools,
+        });
         if (record.closed) {
           session.dispose("Session closed while opening");
           return;

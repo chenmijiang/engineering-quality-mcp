@@ -54,11 +54,17 @@ function toolCall(id: string, name: string, args: object) {
   );
 }
 
-/** Scripted model: "ASK" asks the host a question; "NEXT" asks a second one. */
+/**
+ * Scripted model: "ASK" asks the host a question; "NEXT" asks a second one; a review_code task
+ * reads `review.ts` at the head revision.
+ */
 function reply(messages: WireMessage[]) {
   const last = messages.at(-1);
   if (last?.role === "user" && messageText(last) === "ASK") {
     return toolCall("call-1", "ask_host", { question: "What is the code?" });
+  }
+  if (last?.role === "user" && messageText(last).includes("<changes>")) {
+    return toolCall("call-3", "read_file_at", { path: "review.ts", rev: "head" });
   }
   if (last?.role === "tool" && messageText(last) === "NEXT") {
     return toolCall("call-2", "ask_host", { question: "What is the second code?" });
