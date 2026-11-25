@@ -31,8 +31,15 @@ test("configuration separates startup project, session cwd and application agent
     cwd: project,
     projectCwd: process.cwd(),
     agentDir: join(home, ".qa", "agent"),
+    sessionDir: join(home, ".qa", "agent", "sessions"),
   });
-  expect(loadConfig({ ...env, QA_AGENT_DIR: agentDir })).toMatchObject({ agentDir });
+  expect(loadConfig({ ...env, QA_AGENT_DIR: agentDir })).toMatchObject({
+    agentDir,
+    sessionDir: join(agentDir, "sessions"),
+  });
+  expect(loadConfig({ ...env, QA_SESSION_DIR: join(root, "transcripts") })).toMatchObject({
+    sessionDir: join(root, "transcripts"),
+  });
   expect(process.env).toEqual(before);
 });
 

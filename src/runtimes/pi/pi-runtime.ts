@@ -21,6 +21,8 @@ export interface PiRuntimeOptions {
   /** Process startup directory whose .qa settings seed every session. */
   projectCwd: string;
   agentDir: string;
+  /** Directory for JSONL transcripts named by the host-facing session id. */
+  sessionDir: string;
   model?: { provider: string; id: string };
 }
 
@@ -85,12 +87,19 @@ class PiSession implements AgentSession {
     return this.session.getLastAssistantText() ?? "";
   }
 
-  dispose() {
+  dispose(reason?: string) {
     this.session.dispose();
+    if (!reason) return;
+    try {
+      // Skipped by Pi when the transcript has no conversation yet.
+      this.session.sessionManager.appendCustomEntry("qa_close", { reason });
+    } catch {
+      // A transcript write failure must not prevent closing the session.
+    }
   }
 }
 
-/** Pi SDK backend: read-only file tools plus `ask_host`, with no resource discovery or persistence. */
+/** Pi SDK backend: read-only file tools plus `ask_host`, with no resource discovery. */
 export class PiRuntime implements AgentRuntime {
   // Infer the settings type from the public SDK API.
   readonly #baseSettings: ReturnType<SettingsManager["getSettings"]>;
@@ -100,9 +109,9 @@ export class PiRuntime implements AgentRuntime {
     this.#baseSettings = createReadOnlySettings(options.projectCwd, options.agentDir).getSettings();
   }
 
-  async open({ cwd, host }: OpenSessionOptions): Promise<AgentSession> {
+  async open({ id, cwd, host }: OpenSessionOptions): Promise<AgentSession> {
     const modelRuntime = await this.#getModelRuntime();
-    const { model: wanted, agentDir } = this.options;
+    const { model: wanted, agentDir, sessionDir } = this.options;
     const model = wanted ? modelRuntime.getModel(wanted.provider, wanted.id) : undefined;
     if (wanted && !model) throw new Error(`Unknown Pi model: ${wanted.provider}/${wanted.id}`);
     const base = this.#baseSettings;
@@ -114,7 +123,7 @@ export class PiRuntime implements AgentRuntime {
       resourceLoader,
       tools: ["ask_host", "read", "grep", "find", "ls"],
       customTools: [askHostTool(host)],
-      sessionManager: SessionManager.inMemory(cwd),
+      sessionManager: SessionManager.create(cwd, sessionDir, { id }),
       settingsManager: SettingsManager.inMemory({
         ...base,
         compaction: { ...base.compaction, enabled: false },

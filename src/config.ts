@@ -6,6 +6,8 @@ export type Config = {
   /** Process startup directory; independent of the default session cwd. */
   projectCwd: string;
   agentDir: string;
+  /** Directory for persisted session transcripts. */
+  sessionDir: string;
   model?: { provider: string; id: string };
   runTimeoutMs: number;
   idleTimeoutMs: number;
@@ -24,10 +26,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const { QA_PROVIDER: provider, QA_MODEL: id } = env;
   if (!provider !== !id) throw new Error("Set QA_PROVIDER and QA_MODEL together, or omit both");
   const projectCwd = process.cwd();
+  const agentDir = resolve(env.QA_AGENT_DIR ?? join(env.HOME ?? homedir(), ".qa", "agent"));
   return {
     cwd: resolve(env.QA_CWD ?? projectCwd),
     projectCwd,
-    agentDir: resolve(env.QA_AGENT_DIR ?? join(env.HOME ?? homedir(), ".qa", "agent")),
+    agentDir,
+    sessionDir: resolve(env.QA_SESSION_DIR ?? join(agentDir, "sessions")),
     model: provider && id ? { provider, id } : undefined,
     runTimeoutMs: positiveInteger(env, "QA_RUN_TIMEOUT_MS", 300_000),
     idleTimeoutMs: positiveInteger(env, "QA_IDLE_TIMEOUT_MS", 1_800_000),

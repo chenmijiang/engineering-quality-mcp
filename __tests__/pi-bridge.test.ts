@@ -1,5 +1,14 @@
 import { execFile } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -135,6 +144,30 @@ describe.each([
     expect(followUp.value).toMatchObject({ status: "completed", text: "CODE:CODE-42" });
     expect((await call("cancel_pi", { session_id })).value.status).toBe("closed");
     expect((await call("ask_pi", { session_id, prompt: "RECALL" })).isError).toBe(true);
+  }, 30_000);
+
+  test("a session transcript is persisted under its session_id with the close reason", async () => {
+    const first = await call("ask_pi", { prompt: "ASK" });
+    const { session_id, question_id = "" } = first.value;
+    await call("reply_pi", { session_id, question_id, answer: "CODE-7" });
+    await call("cancel_pi", { session_id });
+
+    const sessionDir = join(fake.agentDir, "sessions");
+    const file = (await readdir(sessionDir)).find((name) => name.endsWith(`_${session_id}.jsonl`));
+    expect(file).toBeDefined();
+    const entries = (await readFile(join(sessionDir, file ?? ""), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(entries[0]).toMatchObject({ type: "session", id: session_id });
+    const text = JSON.stringify(entries);
+    expect(text).toContain('"ASK"');
+    expect(text).toContain("CODE-7");
+    expect(entries.at(-1)).toMatchObject({
+      type: "custom",
+      customType: "qa_close",
+      data: { reason: "Session closed by host" },
+    });
   }, 30_000);
 
   test("cancelling a waiting session rejects a later reply", async () => {

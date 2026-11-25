@@ -67,7 +67,7 @@ class Conversation implements HostChannel {
     const pending = this.pending;
     this.pending = undefined;
     pending?.reject(new Error(reason));
-    this.session?.dispose();
+    this.session?.dispose(reason);
   }
 
   async ask(question: string, signal?: AbortSignal): Promise<string> {
@@ -189,9 +189,9 @@ export class InMemorySessionBroker implements SessionBroker {
   async #run(record: Conversation, prompt: string) {
     try {
       if (!record.session) {
-        const session = await this.runtime.open({ cwd: record.cwd, host: record });
+        const session = await this.runtime.open({ id: record.id, cwd: record.cwd, host: record });
         if (record.closed) {
-          session.dispose();
+          session.dispose("Session closed while opening");
           return;
         }
         record.session = session;

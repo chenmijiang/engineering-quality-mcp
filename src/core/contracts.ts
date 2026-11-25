@@ -9,10 +9,13 @@ export interface AgentSession {
   readonly model?: string;
   /** Runs one turn to completion and returns the final assistant text; rejects on agent errors. */
   prompt(text: string): Promise<string>;
-  dispose(): void;
+  /** `reason` explains why the host ended the conversation, for runtimes that keep transcripts. */
+  dispose(reason?: string): void;
 }
 
 export interface OpenSessionOptions {
+  /** Host-facing session id; runtimes that keep transcripts use it to identify them. */
+  id: string;
   /** Workspace the agent's file tools operate in. */
   cwd: string;
   /** Channel the agent uses for clarification questions during a turn. */

@@ -15,6 +15,7 @@ const config = {
   cwd: tmpdir(),
   projectCwd: tmpdir(),
   agentDir: tmpdir(),
+  sessionDir: tmpdir(),
   runTimeoutMs: 10_000,
   idleTimeoutMs: 60_000,
   maxSessions: 8,
